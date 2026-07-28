@@ -17,6 +17,10 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://ke:ke@localhost:5432
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "ollama")
 LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3.5:4b")
+# See ke/llm.py for why these three defaults are what they are.
+LLM_STRUCTURED_METHOD = os.environ.get("LLM_STRUCTURED_METHOD", "json_schema")
+LLM_REASONING_EFFORT = os.environ.get("LLM_REASONING_EFFORT", "none").strip()
+LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "2048"))
 
 EMBED_PROVIDER = os.environ.get("EMBED_PROVIDER", "local")
 EMBED_MODEL = os.environ.get(

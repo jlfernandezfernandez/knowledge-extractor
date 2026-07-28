@@ -17,12 +17,21 @@ ollama pull qwen3.5:4b            # ~3.4 GB — the generator
 ollama pull qwen3-embedding:0.6b  # ~1.2 GB — the retriever  (optional)
 ```
 
-**`qwen3.5:4b`** (released March 2026) is the recommendation, and not only on
-size:
+**`qwen3.5:4b`** (released March 2026) is the recommendation. It is not the
+newest Qwen — it is the newest one that *fits*, which is the question that
+matters here. As of July 2026 the line has moved on, but not downwards in size:
 
-- **Native tool calling** — required. The pipeline uses
-  `with_structured_output(method="function_calling")`, so a model that cannot
-  emit tool calls cannot run this project at all.
+| Version | Open weights | Sizes on Ollama | On a 16 GB Mac |
+|---|---|---|---|
+| **Qwen3.5** | yes | 0.8b · 2b · **4b** · 9b · 27b · 35b · 122b | ✅ |
+| Qwen3.6 | yes | 27b · 35b only | ❌ 17 GB / 24 GB |
+| Qwen3.7 / 3.8-Max | **no** — API only | — | ❌ |
+
+Beyond size, it earns the slot:
+
+- **Structured output that holds** — required. The pipeline constrains every
+  call to a Pydantic schema; a model that cannot do that cannot run this
+  project at all. See the two settings it needs, below.
 - **Natively multimodal** (text, image, video) — which is exactly where this
   project is heading: capture from photos, whiteboards and screenshots.
 - **Thinking mode** and a **256K context window**.
@@ -87,6 +96,67 @@ LLM_MODEL=claude-opus-5
 | **~4B** | **`qwen3.5:4b`** | **~2.5 GB** | **the sweet spot for this workload** |
 | ~9B | `qwen3.5:9b` | ~6 GB | better claims; tight if Docker + IDE are open |
 | 27B+ | `qwen3.5:27b` | 16 GB+ | not on this machine |
+
+## Measured on a MacBook Air M3 / 16 GB
+
+`qwen3.5:4b` + fastembed, everything local, nothing hosted:
+
+| Step | Time | Result |
+|---|---|---|
+| Capture → claims + summary | **20 s** | 5 claims from a 2-sentence brain-dump |
+| Conflict detection | **11 s** | 2 of 5 claims had neighbours; the other 3 cost zero LLM calls |
+| Commit | **< 0.1 s** | pure database work |
+| Ask (hybrid retrieval + cited answer) | **5 s** | correct, and citing the right claim |
+
+It found the real contradiction — a stored "22 días de vacaciones" against an
+incoming "23 días" — called it a `conflict`, and explained why. It also
+correctly called a vaguer restatement of a stored claim a `refines` rather than
+a conflict. That is the hard part of the pipeline, and a 4B model does it.
+
+### Two settings this needed, and neither is optional
+
+Both are already the defaults in `.env.example`. They are here because without
+them the pipeline returns **zero claims**, not slightly worse ones.
+
+**`LLM_STRUCTURED_METHOD=json_schema`.** Asked for the nested `Extraction`
+schema through `function_calling`, the model flattened it: one tool call per
+claim, shaped like a bare claim, wrapper and summary dropped. The parse then
+found no `claims` key and yielded an empty result. Constrained decoding against
+the JSON schema holds the shape.
+
+**`LLM_REASONING_EFFORT=none`.** Qwen3.5 thinks by default. On a plain
+extraction it spent **3910 completion tokens** reasoning and never emitted the
+JSON at all. Measured three ways:
+
+| Configuration | Time | Result |
+|---|---|---|
+| thinking on, `max_tokens` 4096 | — | fails, budget exhausted mid-thought |
+| thinking on, `max_tokens` 8000 | **216 s** | works, worse claims |
+| **thinking off** | **8 s** | works, better claims |
+
+Extraction is not a reasoning task. Set it back to `low`/`medium`/`high` if you
+point this at a model that benefits, or to empty for a provider that rejects
+the parameter.
+
+### What 4B is not good enough for
+
+Honest limits, seen in the same run:
+
+- **It over-splits.** Two sentences became five claims. Three would be right.
+- **Titles run long.** They should be short labels; it writes sentences.
+- **It embellishes.** It rendered "Friday morning" as *"mover el despliegue a
+  los fines de semana"* — Friday is not the weekend — and turned "every Sunday
+  at 3am" into a summary claiming *"ocurre una vez al año"*.
+- **It ignores the language instruction on secondary fields.** Claims came back
+  in Spanish as asked; the conflict `reason` strings came back in English.
+
+None of this is fatal **because of the design**: step 2 exists precisely so a
+person deletes the invented claim before it is stored. That is the difference
+between this and a pipeline that would have written all five straight into the
+vector store.
+
+If you want fewer of those corrections, `qwen3.5:9b` is the next step up that
+still fits, and any hosted model removes the problem entirely — three env vars.
 
 ## Which parts need the model to be good?
 

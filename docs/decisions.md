@@ -216,3 +216,34 @@ interruptible when toasts stack.
 Nothing animates from `scale(0)`; entrances start at 6px of travel and
 `scale(0.995)`, because nothing in the real world appears from nothing. Reduced
 motion keeps the opacity fades that carry meaning and drops the movement.
+
+---
+
+### `json_schema`, not `function_calling`, for structured output
+
+**Chosen.** Constrained decoding against the JSON schema.
+
+**Rejected:** `function_calling`, which is the more widely supported method and
+was the original choice. It fails on this project's nested `Extraction` schema
+with a 4B local model: the model emits one tool call per claim instead of one
+call containing a list of claims, and the wrapper's other fields — the summary
+the whole second screen is built around — are dropped. The parse then finds no
+`claims` key and returns an empty result. Silent, and total.
+
+Both work on larger models. `LLM_STRUCTURED_METHOD` switches it back for
+providers without `json_schema` support. Measurements in
+[`local-models.md`](local-models.md#two-settings-this-needed-and-neither-is-optional).
+
+---
+
+### Thinking off for extraction
+
+**Chosen.** `LLM_REASONING_EFFORT=none` by default.
+
+**Rejected:** leaving the model's default thinking on and raising `max_tokens`
+to accommodate it. Measured on `qwen3.5:4b`: thinking on burned 3910 completion
+tokens without reaching the JSON; raising the ceiling made it work in **216
+seconds** with *worse* claims; turning thinking off made it work in **8**.
+
+Extraction and 4-way classification are not reasoning tasks. The reasoning
+budget belongs to the human reading step 2.

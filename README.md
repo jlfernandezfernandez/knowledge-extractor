@@ -96,8 +96,11 @@ ollama pull qwen3.5:4b            # ~3.4 GB — multimodal, thinking mode, tool 
 ollama pull qwen3-embedding:0.6b  # optional, stronger multilingual embeddings
 ```
 
-The `.env.example` defaults are already set for this. See
-`docs/local-models.md` for what fits in what, and why these two.
+The `.env.example` defaults are already set for this — including two settings a
+4B model needs in order to work at all. Measured on a MacBook Air M3 / 16 GB:
+20 s to extract, 11 s to detect conflicts, 5 s to answer a question, entirely
+offline. `docs/local-models.md` has the numbers, the two settings, and an
+honest list of what 4B still gets wrong.
 
 ### Optional extras
 
