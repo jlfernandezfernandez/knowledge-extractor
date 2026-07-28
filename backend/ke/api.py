@@ -7,19 +7,17 @@ this scale.
 """
 
 import json
-import tempfile
 import uuid
 from collections.abc import Iterator
-from contextlib import asynccontextmanager
-from pathlib import Path
+from contextlib import asynccontextmanager, suppress
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi import FastAPI, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langgraph.types import Command
 
 from . import ask as ask_module
-from . import config, graph, store
+from . import config, graph, speech, store
 from .schemas import (
     AskRequest,
     AskResponse,
@@ -242,39 +240,56 @@ def history(claim_id: str) -> dict:
 # --- capture helpers ----------------------------------------------------
 
 
-@app.post("/api/transcribe", tags=["capture"])
-def transcribe(file: UploadFile) -> dict:
+@app.websocket("/api/transcribe/live")
+async def transcribe_live(websocket: WebSocket) -> None:
+    """Dictation, transcribed while you speak.
+
+    The client streams raw 16 kHz mono PCM16; the server pushes back each
+    segment as a voice-activity detector closes it, so the text arrives roughly
+    a phrase at a time instead of all at once when you stop.
+
+    Decoding blocks, so it runs in a worker thread — otherwise a long segment
+    would stall the event loop and stop the socket draining.
+    """
+    import asyncio
+
+    import numpy as np
+
+    await websocket.accept()
     try:
-        from faster_whisper import WhisperModel
-    except ImportError:
-        raise HTTPException(
-            501, "Transcription needs the audio extra: uv pip install -e '.[audio]'"
-        )
-    suffix = Path(file.filename or "audio.webm").suffix or ".webm"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(file.file.read())
-        path = tmp.name
+        transcriber = await asyncio.to_thread(speech.create)
+    except Exception as error:
+        await websocket.send_json({"type": "error", "detail": str(error)})
+        await websocket.close()
+        return
+
+    await websocket.send_json({"type": "ready"})
     try:
-        segments, _ = _whisper(WhisperModel).transcribe(path, vad_filter=True)
-        return {"text": " ".join(s.text.strip() for s in segments).strip()}
+        while True:
+            message = await websocket.receive()
+            if chunk := message.get("bytes"):
+                samples = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
+                for text in await asyncio.to_thread(lambda: list(transcriber.feed(samples))):
+                    await websocket.send_json({"type": "segment", "text": text})
+            elif message.get("text") == "stop":
+                for text in await asyncio.to_thread(lambda: list(transcriber.flush())):
+                    await websocket.send_json({"type": "segment", "text": text})
+                await websocket.send_json({"type": "done"})
+                break
+            elif message.get("type") == "websocket.disconnect":
+                break
+    except WebSocketDisconnect:
+        pass
     finally:
-        Path(path).unlink(missing_ok=True)
-
-
-_whisper_model = None
-
-
-def _whisper(cls):
-    global _whisper_model
-    if _whisper_model is None:
-        _whisper_model = cls(config.WHISPER_MODEL, device="cpu", compute_type="int8")
-    return _whisper_model
+        with suppress(RuntimeError):
+            await websocket.close()
 
 
 @app.get("/api/health", tags=["ops"])
 def health() -> dict:
     return {
         "ok": True,
+        "speech": {"provider": config.SPEECH_PROVIDER, "available": speech.available()},
         "llm": {"model": config.LLM_MODEL, "base_url": config.LLM_BASE_URL},
         "embeddings": {
             "provider": config.EMBED_PROVIDER,

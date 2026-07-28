@@ -292,3 +292,64 @@ first slide highlighted nothing and read as broken.
 chrome of every screen, competing with the two things that matter there — where
 you are, and how to ask a question — for a control almost nobody touches once.
 The detector is right the first time; i18n stayed, the widget went.
+
+---
+
+### Conflict actions depend on the verdict
+
+**The question this answers:** does "keep both" make sense?
+
+**Only sometimes**, and offering it everywhere was a real bug. The 2026 RAG
+literature splits knowledge conflicts into types — temporal, complementary,
+duplicate, debatable — and the point of the taxonomy is that the *resolution*
+differs per type. ConflictRAG classifies before resolving; the deterministic
+recency work shows a plain recency prior beats asking a model which of two
+dated facts is current.
+
+Mapped onto this project's three actionable verdicts:
+
+| Verdict | Offered | Default | Why |
+|---|---|---|---|
+| `conflict` | use yours · keep stored · combine | **use yours** | Keeping both leaves retrieval to surface two incompatible claims and the generator to pick one arbitrarily — the exact failure this project exists to prevent. So keep-both is **not offered**. The default follows the recency prior: the person telling you now is describing the current state. |
+| `duplicate` | keep stored · use yours · combine | **keep stored** | Two copies of one fact dilute retrieval and inflate whatever the generator sees. Keep-both is **not offered** here either. |
+| `refines` | keep both · combine · use yours | **keep both** | Complementary claims are the case where both *should* stand. Superseding one throws away information that was worth keeping. |
+
+Enforced in `plan()`, not just hidden in the UI: an agent that posts
+`keep_both` for a `conflict` gets a `ValueError`, because a rule that only
+exists in the frontend is not a rule.
+
+**Every overlap arrives pre-answered** with its verdict's default, so the common
+path is read-and-continue instead of click-every-card, and the action bar shows
+how many you changed. The human gate is unchanged — nothing is written until
+someone presses Save — but the gate no longer demands a click per row to pass.
+
+**Not adopted:** letting the model resolve conflicts on its own (that is the
+"Detecting Is Not Resolving" gap, and it removes the person this product is
+built around), and a knowledge-graph layer for factual-conflict detection
+(`TruthfulRAG`) — heavy for a store of this size.
+
+---
+
+### Speech: Parakeet TDT, with segments as they land
+
+**Chosen.** NVIDIA Parakeet TDT 0.6B v3, INT8 ONNX, through sherpa-onnx. 640 MB,
+25 European languages with automatic language identification, ~10x realtime on
+this laptop's CPU, and no hallucinated text over silence — a transducer has
+nothing to hallucinate *with*, which is Whisper's well-known failure on empty
+audio. It is also the model Orca ships, so anyone who has Orca already has the
+weights on disk and the default path finds them.
+
+**Live text comes from segmentation, not a streaming model.** A Silero VAD cuts
+the audio on pauses and each closed segment is decoded on its own, so the
+transcript grows a phrase at a time. The obvious alternative — re-decoding the
+whole buffer every tick — gets slower the longer you speak, which is precisely
+backwards.
+
+Audio reaches the server over a WebSocket as 16 kHz PCM16, captured in an
+`AudioWorklet`. The worklet matters: a `ScriptProcessorNode` runs on the main
+thread and drops samples whenever React renders. The `AudioContext` is asked
+for 16 kHz directly, so there is no resampling in JavaScript at all.
+
+**Rejected:** Whisper as the default (batch only, so nothing appears until you
+stop talking; kept as `SPEECH_PROVIDER=whisper` because it is what most people
+already have) and cloud transcription (this whole project runs offline).

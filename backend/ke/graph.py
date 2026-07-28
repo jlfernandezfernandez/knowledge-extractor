@@ -24,21 +24,29 @@ from langgraph.types import Command, interrupt
 
 from . import config, embed, store
 from .llm import structured
-from .schemas import Comparisons, Extraction
+from .schemas import RESOLUTION_POLICY, Comparisons, Extraction
 
-EXTRACT_SYSTEM = """You turn a person's raw brain-dump into discrete, self-contained \
-knowledge claims for a shared company knowledge base.
+EXTRACT_SYSTEM = """You turn what a person said into separate, self-contained claims \
+for a shared knowledge base.
 
 Rules:
-- One claim per idea. Split compound statements.
-- Each claim must stand alone: no "it", "that", "as mentioned above". Someone \
-reading only this claim, months later, must understand it.
-- Write claims in the same language the person used.
-- Keep the person's meaning. Never invent facts, caveats or numbers.
-- Drop pleasantries, thinking-out-loud, and anything that is not knowledge.
-
-Also write a short `summary` telling the person what you understood, and list \
-`open_questions` only for things that are genuinely ambiguous."""
+- One claim per fact. Split compound statements; do not split a single fact \
+into fragments. Prefer three good claims over six thin ones.
+- Each claim stands alone. No "it", "that", "the above". Someone reading only \
+this claim, a year from now, with no other context, must understand it.
+- Use the person's own language and their words. Do not translate, do not \
+upgrade the register, do not add words like "proceso", "política" or \
+"operaciones" if they did not say them.
+- Never add a fact, a number, a caveat or a reason they did not give. If they \
+said Friday morning, do not write "the weekend".
+- Drop greetings, thinking aloud, and anything that is not a fact worth storing.
+- `title` is a label for this one claim, two to five words. It must not be the \
+same as `topic`: the topic groups several claims, the title tells them apart.
+- `topic` groups claims: one or two words, and reuse the exact same wording for \
+every claim about the same subject.
+- `summary`: one or two sentences, in their language, saying what you took from \
+this. Start with the fact, not with "The user says" or "It has been identified".
+- `open_questions`: only genuine ambiguity. Usually empty."""
 
 COMPARE_SYSTEM = """You compare a NEW knowledge claim against EXISTING claims already \
 stored in a knowledge base, and decide how each pair relates.
@@ -49,8 +57,10 @@ Verdicts:
 - "refines"    the new claim adds detail to the old one; both can stand
 - "unrelated"  they only look similar; they are about different things
 
-Be strict about "conflict": it means disagreement about the same subject, not \
-merely a related topic. Give one sentence of reasoning in the claims' language."""
+Be strict about "conflict": it means the two cannot both be true about the same \
+subject, not merely that they are related.
+
+Write `reason` as one short sentence in the same language as the claims."""
 
 ANSWER_SYSTEM = """Answer the question using only the knowledge claims provided. \
 Cite the ids of the claims you actually used. If the claims do not answer the \
@@ -83,6 +93,7 @@ def extract(state: State) -> dict:
     )
     claims = [
         {"id": f"c{i}", "title": c.title or c.statement[:60], "statement": c.statement,
+         "topic": (c.topic or "").strip(),
          "tags": [t.strip().lower() for t in c.tags if t.strip()]}
         for i, c in enumerate(result.claims)
         if c.statement.strip()
@@ -139,6 +150,7 @@ def detect(state: State) -> dict:
         for candidate in candidates:
             comparison = verdicts.get(candidate.id)
             if comparison and comparison.verdict != "unrelated":
+                policy = RESOLUTION_POLICY[comparison.verdict]
                 conflicts.append(
                     {
                         "key": f"{claim['id']}::{candidate.id}",
@@ -146,6 +158,8 @@ def detect(state: State) -> dict:
                         "stored": candidate.model_dump(),
                         "verdict": comparison.verdict,
                         "reason": comparison.reason,
+                        "allowed": policy["allowed"],
+                        "recommended": policy["default"],
                     }
                 )
     return {"conflicts": conflicts}
@@ -194,7 +208,6 @@ def plan(claims: list[dict], conflicts: list[dict], resolutions: dict[str, Any])
     Returns one action per claim: `{"claim", "statement", "supersedes": [ids]}`
     for claims to insert, or `{"claim", "skipped": reason}` for claims to drop.
     """
-    valid = {"keep_new", "keep_old", "keep_both", "merge"}
     by_claim: dict[str, list[dict]] = {}
     for conflict in conflicts:
         by_claim.setdefault(conflict["draft_id"], []).append(conflict)
@@ -208,10 +221,19 @@ def plan(claims: list[dict], conflicts: list[dict], resolutions: dict[str, Any])
 
         decided = []
         for pair in pairs:
+            policy = RESOLUTION_POLICY[pair["verdict"]]
             resolution = resolutions.get(pair["key"]) or {}
             action = resolution.get("action") if isinstance(resolution, dict) else None
-            if action not in valid:
-                raise ValueError(f"missing or invalid resolution for {pair['key']}")
+            if action is None:
+                # No decision sent: fall back to the verdict's recommendation
+                # rather than erroring. The UI pre-selects it, so this path is
+                # for callers that only want to override the interesting ones.
+                resolution = {"action": policy["default"]}
+            elif action not in policy["allowed"]:
+                raise ValueError(
+                    f"{action!r} is not a valid resolution for a "
+                    f"{pair['verdict']!r} pair ({pair['key']})"
+                )
             decided.append((pair, resolution))
 
         if all(r["action"] == "keep_old" for _, r in decided):

@@ -20,20 +20,25 @@ Decision = Literal["keep_new", "keep_old", "keep_both", "merge"]
 class Claim(BaseModel):
     """One discrete, self-contained piece of knowledge."""
 
-    title: str = Field(description="Short label, at most a few words.")
+    title: str = Field(description="A label of two to five words. Not a sentence.")
     statement: str = Field(
-        description="The full claim in 1-3 sentences. Must stand alone with no "
-        "pronouns or references to other claims."
+        description="The claim in one or two sentences. Must stand alone: no "
+        "pronouns, no reference to other claims."
     )
-    tags: list[str] = Field(default_factory=list, description="Lowercase topic tags.")
+    topic: str = Field(
+        default="",
+        description="The subject this belongs under, one or two words. Reuse the "
+        "same wording across claims about the same subject so they group.",
+    )
+    tags: list[str] = Field(default_factory=list, description="Lowercase tags.")
 
 
 class Extraction(BaseModel):
     claims: list[Claim] = Field(default_factory=list)
     summary: str = Field(
         default="",
-        description="Two or three sentences telling the person what you understood, "
-        "in their own language.",
+        description="One or two sentences telling the person what you understood, "
+        "in their own language. Plain and specific. No preamble.",
     )
     open_questions: list[str] = Field(
         default_factory=list,
@@ -86,6 +91,27 @@ class Conflict(BaseModel):
     stored: StoredClaim
     verdict: Verdict
     reason: str
+    allowed: list[Decision] = []
+    recommended: Decision = "keep_new"
+
+
+# Which resolutions make sense depends on how the two claims relate. Offering
+# every action for every verdict is what the first version did, and it is wrong:
+# keeping both sides of a genuine contradiction leaves retrieval to surface two
+# incompatible statements and lets the generator pick one arbitrarily — the
+# exact failure this project exists to prevent. Conversely, superseding one side
+# of a complementary pair throws away information that was worth keeping.
+#
+# The taxonomy follows the conflict-type split in the 2026 RAG literature
+# (temporal / complementary / duplicate), and each verdict carries a recommended
+# default so the common case needs no clicking. For a contradiction the default
+# is the incoming claim, on the recency prior that the person telling you now is
+# describing the current state.
+RESOLUTION_POLICY: dict[str, dict] = {
+    "conflict": {"allowed": ["keep_new", "keep_old", "merge"], "default": "keep_new"},
+    "duplicate": {"allowed": ["keep_old", "keep_new", "merge"], "default": "keep_old"},
+    "refines": {"allowed": ["keep_both", "merge", "keep_new"], "default": "keep_both"},
+}
 
 
 class Resolution(BaseModel):

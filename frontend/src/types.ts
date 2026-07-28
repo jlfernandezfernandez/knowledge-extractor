@@ -8,6 +8,7 @@ export interface ClaimDraft {
   id: string;
   title: string;
   statement: string;
+  topic: string;
   tags: string[];
 }
 
@@ -28,6 +29,11 @@ export interface Conflict {
   stored: StoredClaim;
   verdict: Verdict;
   reason: string;
+  /** Which resolutions the backend will accept for this verdict. Keeping both
+   *  sides of a contradiction is not one of them. */
+  allowed: DecisionAction[];
+  /** Pre-selected so the common case needs no clicking. */
+  recommended: DecisionAction;
 }
 
 export interface Resolution {

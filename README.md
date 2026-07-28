@@ -60,6 +60,7 @@ teams actually run in production in 2026.
 | Model access | **LangChain** `init_chat_model` + `with_structured_output` | One line to swap Ollama ↔ OpenRouter ↔ OpenAI ↔ Anthropic. Output is constrained by a Pydantic schema, so there is no JSON scraping. |
 | Store | **Postgres + pgvector** | Vectors, lexical index, supersede history and the paused workflow checkpoints all live in one database, started by one `docker compose up`. |
 | Retrieval | **Hybrid** (pgvector + Postgres full-text, fused with RRF) | Embeddings miss exact tokens — error codes, version numbers, acronyms. Keyword search misses paraphrase and cross-language. Production RAG uses both. |
+| Speech | **Parakeet TDT 0.6B v3** (ONNX, CPU) | 25 languages, auto language ID, no silence hallucination, and the transcript appears while you speak. |
 | Embeddings | **fastembed** (ONNX, CPU) | ~90 MB, multilingual, no PyTorch, no GPU, no extra service. Swappable for any OpenAI-compatible `/embeddings` endpoint. |
 | API | **FastAPI** | Pydantic schemas are already there; OpenAPI docs come free at `/docs`. |
 | Frontend | **React 19 + TypeScript + Vite + Tailwind v4** | The default enterprise SPA stack. No SSR here on purpose — see `docs/decisions.md`. |
@@ -92,7 +93,7 @@ npm install && npm run dev                # http://localhost:5173
 ### Running it fully local (recommended on a 16 GB Mac)
 
 ```bash
-ollama pull qwen3.5:4b            # ~3.4 GB — multimodal, thinking mode, tool calling
+ollama pull qwen3.5:9b            # ~6.6 GB — the largest that leaves room to work
 ollama pull qwen3-embedding:0.6b  # optional, stronger multilingual embeddings
 ```
 

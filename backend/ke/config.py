@@ -16,7 +16,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://ke:ke@localhost:5432
 
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "ollama")
-LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3.5:4b")
+LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3.5:9b")
 # See ke/llm.py for why these three defaults are what they are.
 LLM_STRUCTURED_METHOD = os.environ.get("LLM_STRUCTURED_METHOD", "json_schema")
 LLM_REASONING_EFFORT = os.environ.get("LLM_REASONING_EFFORT", "none").strip()
@@ -35,6 +35,16 @@ RETRIEVE_TOP_K = int(os.environ.get("RETRIEVE_TOP_K", "10"))
 CONFLICT_TOP_K = int(os.environ.get("CONFLICT_TOP_K", "5"))
 CONFLICT_MAX_DISTANCE = float(os.environ.get("CONFLICT_MAX_DISTANCE", "0.55"))
 
+# --- Speech to text ---
+# parakeet = NVIDIA Parakeet TDT 0.6B v3 via sherpa-onnx: 25 European
+#            languages, auto language ID, ~10x realtime on CPU, live segments.
+# whisper  = faster-whisper, batch only.
+SPEECH_PROVIDER = os.environ.get("SPEECH_PROVIDER", "parakeet")
+SPEECH_MODEL_DIR = os.environ.get(
+    "SPEECH_MODEL_DIR",
+    "~/Library/Application Support/Orca/speech-models/parakeet-tdt-0.6b-v3-int8",
+)
+SPEECH_THREADS = int(os.environ.get("SPEECH_THREADS", "4"))
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 
 CORS_ORIGINS = [

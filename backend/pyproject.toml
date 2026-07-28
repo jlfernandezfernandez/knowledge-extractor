@@ -19,12 +19,14 @@ dependencies = [
     # Storage
     "psycopg[binary,pool]>=3.2",
     "pgvector>=0.3.6",
-    # Local embeddings (ONNX, CPU, no torch)
+    # Local embeddings and speech, both ONNX on CPU, neither pulling torch
     "fastembed>=0.8",
+    "sherpa-onnx>=1.13",
 ]
 
 [project.optional-dependencies]
-audio = ["faster-whisper>=1.1"]
+# Only needed for SPEECH_PROVIDER=whisper; Parakeet works out of the box.
+whisper = ["faster-whisper>=1.1"]
 a2a = ["a2a-sdk[http-server]>=1.1"]
 mcp = ["mcp>=1.2"]
 dev = ["pytest>=8.3", "httpx>=0.28"]
