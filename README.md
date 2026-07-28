@@ -1,140 +1,135 @@
 # Knowledge Extractor
 
-Turn what a person *knows* into a curated vector knowledge base — with the person
-in the loop the whole way.
+**Get what one person knows into something everyone can query — without letting
+a model decide what is true.**
 
-Most RAG ingestion pipelines dump documents into a vector store and hope for the
-best. Knowledge decays, contradicts itself, and nobody notices. Knowledge Extractor
-makes ingestion a **review**:
+Companies do not lose knowledge because nobody wrote it down. They lose it
+because the person who has it never had a low-friction way to give it up, and
+because when they finally did, it quietly contradicted something already in the
+wiki and nobody noticed.
 
-1. **Capture** — someone talks or types, freely. No structure required.
-2. **Confirm** — an LLM splits it into discrete, self-contained claims and shows
-   them back. *"This is what I understood."* The person edits or deletes anything wrong.
-3. **Resolve** — each claim is checked against what is already stored. Contradictions
-   are shown as **git-style conflicts** and the person decides: take incoming, keep
-   stored, keep both, or write a merge.
-4. **Commit** — only then does anything land in the vector store. Nothing is ever
-   deleted; a replaced claim is marked as superseded by the one that won, so the
-   knowledge base has a history.
+Knowledge Extractor makes knowledge capture a **review**, in four steps:
 
-Other agents can talk to it over Google's **Agent2Agent (A2A)** protocol: they can
-search the knowledge base freely, and they can *propose* knowledge — which opens a
-review session for a human rather than writing straight to the store.
-
-<!-- ponytail: no screenshot yet; the UI is one self-contained HTML file, run it. -->
-
-## Why these pieces
-
-| Piece | Choice | Why |
+| | | |
 |---|---|---|
-| Vector store | **Postgres + pgvector** | The vectors, the supersede history and the review sessions live in one database with one `docker compose up`. A dedicated vector DB would mean a second store for the relational half. |
-| Embeddings | **fastembed** (ONNX, CPU) | No PyTorch, no GPU, no extra service — ~90 MB, multilingual by default. Swap in any OpenAI-compatible `/embeddings` endpoint with two env vars. |
-| LLM | **any OpenAI-compatible endpoint** | Ollama, LM Studio, OpenRouter, OpenAI, Anthropic — one base URL and a model name. No vendor lock-in in the code. |
-| Transcription | **faster-whisper** (optional) | Runs locally on CPU. Optional extra; skip it if you only type. |
-| Agent interop | **A2A** (`a2a-sdk`) | v1.0 since April 2026, Linux Foundation governed. Optional extra. |
-| UI | one HTML file, no build step | `git clone` → run. No npm, no bundler. |
+| **1. Say it** | Talk or type. No structure, no template, no form. | |
+| **2. Read it back** | The model splits it into discrete, self-contained claims and shows them to you. *"This is what I understood."* You edit, discard, or answer its open questions and make it try again. | ⏸ **human gate** |
+| **3. Decide** | Each claim is checked against what is already stored. Anything that collides is shown side by side — stored vs yours — and you are the tie-breaker. | ⏸ **human gate** |
+| **4. Commit** | Only now is anything written. Nothing is ever deleted: a claim that loses is kept and marked as superseded by the one that won. |
 
-Everything is open source and runs entirely on a laptop.
+Then the other half: **ask it questions**. Answers come only from claims a human
+approved, and cite the exact claims they used.
+
+Other agents get the same surface. It speaks **A2A** (agent-to-agent) and
+**MCP** (model-to-tools), so a coding assistant or another team's agent can
+search and ask — and can *propose* knowledge, which opens a review for a human
+rather than writing to the store.
+
+---
+
+## Why this is different from "dump the docs into a vector DB"
+
+Ordinary RAG ingests documents and hopes. This ingests *claims*, and a person
+signs off on each one. Three things follow from that, and they are the whole
+point:
+
+- **No chunking problem.** The retrieval unit is a claim that was written to
+  stand alone. There is no window size to tune and no chunk that lost its
+  context on page 34. Contextual retrieval is done by a human at write time
+  instead of guessed at read time.
+- **Contradictions surface at write time**, when the person who knows the answer
+  is right there, instead of at read time when the model confidently averages
+  two incompatible facts.
+- **Knowledge has lineage.** `superseded_by` chains mean you can always ask
+  *"what did we used to believe, and when did that change?"*
+
+---
+
+## Stack
+
+Chosen to be current *and* boring enough to be employable — these are the tools
+teams actually run in production in 2026.
+
+| Layer | Choice | Why this one |
+|---|---|---|
+| Workflow | **LangGraph** | The product is a stateful multi-step workflow that has to *stop and wait for a human twice*. That is exactly what `interrupt()` + a checkpointer are for. A LangChain chain has nowhere to stop. |
+| Model access | **LangChain** `init_chat_model` + `with_structured_output` | One line to swap Ollama ↔ OpenRouter ↔ OpenAI ↔ Anthropic. Output is constrained by a Pydantic schema, so there is no JSON scraping. |
+| Store | **Postgres + pgvector** | Vectors, lexical index, supersede history and the paused workflow checkpoints all live in one database, started by one `docker compose up`. |
+| Retrieval | **Hybrid** (pgvector + Postgres full-text, fused with RRF) | Embeddings miss exact tokens — error codes, version numbers, acronyms. Keyword search misses paraphrase and cross-language. Production RAG uses both. |
+| Embeddings | **fastembed** (ONNX, CPU) | ~90 MB, multilingual, no PyTorch, no GPU, no extra service. Swappable for any OpenAI-compatible `/embeddings` endpoint. |
+| API | **FastAPI** | Pydantic schemas are already there; OpenAPI docs come free at `/docs`. |
+| Frontend | **React 19 + TypeScript + Vite + Tailwind v4** | The default enterprise SPA stack. No SSR here on purpose — see `docs/decisions.md`. |
+| Agent surfaces | **A2A** (`a2a-sdk`) and **MCP** (`mcp`) | The two protocols that matter, and they are complementary rather than competing. `docs/protocols.md` explains the difference. |
+
+Everything is open source and runs on a laptop, offline, with no API key.
+
+---
 
 ## Quick start
 
 ```bash
-git clone https://github.com/<you>/knowledge-extractor && cd knowledge-extractor
-cp .env.example .env          # then set LLM_API_BASE / LLM_API_KEY / LLM_MODEL
-docker compose up -d          # Postgres 17 + pgvector
+git clone https://github.com/jlfernandezfernandez/knowledge-extractor
+cd knowledge-extractor
+docker compose up -d                      # Postgres 17 + pgvector
+
+# Backend
+cd backend
+cp .env.example .env                      # defaults point at a local Ollama
 uv venv && uv pip install -e .
-knowledge-extractor           # http://127.0.0.1:8000
+ke-api                                    # http://127.0.0.1:8000  (docs at /docs)
+
+# Frontend
+cd ../frontend
+npm install && npm run dev                # http://localhost:5173
 ```
 
-First run downloads the embedding model (~90 MB) once.
-
-Optional extras:
+### Running it fully local (recommended on a 16 GB Mac)
 
 ```bash
-uv pip install -e '.[audio]'   # voice capture (faster-whisper, local, CPU)
-uv pip install -e '.[a2a]'     # A2A agent server:  ke-a2a  → port 9999
+ollama pull qwen3.5:4b            # ~3.4 GB — multimodal, thinking mode, tool calling
+ollama pull qwen3-embedding:0.6b  # optional, stronger multilingual embeddings
 ```
 
-Tested on an M-series MacBook Air, 16 GB, CPU only.
+The `.env.example` defaults are already set for this. See
+`docs/local-models.md` for what fits in what, and why these two.
 
-### Using a fully local stack
+### Optional extras
 
 ```bash
-ollama pull qwen3 && ollama pull embeddinggemma
+cd backend
+uv pip install -e '.[audio]'   # voice capture, local, CPU (faster-whisper)
+uv pip install -e '.[a2a]'     # ke-a2a  → agent-to-agent server on :9999
+uv pip install -e '.[mcp]'     # ke-mcp  → MCP server over stdio
 ```
 
-```dotenv
-LLM_API_BASE=http://localhost:11434/v1
-LLM_API_KEY=ollama
-LLM_MODEL=qwen3
-EMBED_API_BASE=http://localhost:11434/v1
-EMBED_MODEL=embeddinggemma
-EMBED_DIM=768
-```
+---
 
-Changing `EMBED_DIM` changes the vector column width — recreate the database with
-`docker compose down -v` when you switch embedding models.
+## Documentation
 
-## HTTP API
+Written to be read in order. The goal is that after reading them you can
+rebuild this — or argue with the choices — without the code in front of you.
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/capture` | `{text, author}` → opens a session, returns extracted claims |
-| `POST` | `/api/transcribe` | audio upload → text (needs the `audio` extra) |
-| `POST` | `/api/sessions/{id}/atoms` | the confirmed/edited claims → returns conflicts |
-| `POST` | `/api/sessions/{id}/resolve` | `{decisions}` → writes to the store |
-| `GET` | `/api/search?q=` | semantic search |
-| `GET` | `/api/knowledge` | everything currently live |
-| `GET` | `/api/health` | which models are configured |
+| | |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | How the pieces fit, and what happens on each request |
+| [`docs/concepts.md`](docs/concepts.md) | The concepts behind it — RAG, hybrid retrieval, RRF, human-in-the-loop, checkpointing — explained so you can explain them |
+| [`docs/protocols.md`](docs/protocols.md) | A2A, MCP and the 2026 agent-interoperability landscape |
+| [`docs/local-models.md`](docs/local-models.md) | Which models fit on a laptop, and how to swap them |
+| [`docs/decisions.md`](docs/decisions.md) | What was chosen, what was rejected, and why |
 
-A decision is keyed `"<atom_id>::<existing_id>"` and is one of `keep_new`,
-`keep_old`, `keep_both`, or `merge` (with a `statement`).
-
-## A2A
-
-```bash
-ke-a2a
-# agent card: http://127.0.0.1:9999/.well-known/agent-card.json
-```
-
-Two skills:
-
-- **`search_knowledge`** — semantic search over the curated store.
-- **`submit_knowledge`** — proposes knowledge and returns a `review_url`. It does
-  **not** write to the store. A human opens that URL, confirms what the model
-  understood, and resolves any conflicts. That gate is the point of the project.
-
-Select a skill with `metadata: {"skill": "submit_knowledge"}` on the message;
-the default is search.
-
-Calling it directly — note the JSON-RPC method is `SendMessage`, and the
-`A2A-Version` header is **required** (without it the server assumes protocol 0.3
-and rejects the call):
-
-```bash
-curl -s -X POST localhost:9999/ \
-  -H 'Content-Type: application/json' -H 'A2A-Version: 1.0' \
-  -d '{"jsonrpc":"2.0","id":"1","method":"SendMessage","params":{
-       "message":{"messageId":"u1","role":"ROLE_USER",
-                  "parts":[{"text":"when do we deploy?"}]}}}'
-```
-
-## Data model
-
-```
-knowledge(id, title, statement, tags[], author, source, embedding, superseded_by, created_at)
-sessions (id, stage, payload jsonb, created_at)
-```
-
-`superseded_by` is the whole history mechanism: a claim that loses a conflict stays
-in the table pointing at the claim that replaced it. Searches only see rows where
-`superseded_by IS NULL`.
+---
 
 ## Tests
 
 ```bash
-python tests/test_pipeline.py     # no database or LLM needed
+cd backend && .venv/bin/python -m pytest    # no database or model needed
 ```
+
+## Status
+
+Working end to end: capture → confirm → conflicts → commit, hybrid search,
+cited answers, A2A and MCP surfaces. Not yet: multimodal capture (images and
+files), authentication, and per-team isolation. See the issues.
 
 ## License
 

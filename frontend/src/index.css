@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/* Cool paper and ink, with verdigris as the one identity colour — the patina
+   of something that has been accumulating for a while, which is what a
+   knowledge base is. Clay is reserved strictly for conflict state, so seeing
+   it always means a human has to decide something. */
+:root {
+  --paper: #f5f7f8;
+  --surface: #ffffff;
+  --sunken: #eceff2;
+  --ink: #10131a;
+  --muted: #667080;
+  --line: #dfe4ea;
+  --verdigris: #0d7a6b;
+  --verdigris-soft: #e2f1ee;
+  --clay: #b03e12;
+  --clay-soft: #fbeae2;
+  --stored: #f4eef1;
+  --incoming: #e7f2ef;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0d1016;
+    --surface: #151a22;
+    --sunken: #1b2029;
+    --ink: #e8ebf0;
+    --muted: #8b95a5;
+    --line: #262d38;
+    --verdigris: #3fbfa8;
+    --verdigris-soft: #10302c;
+    --clay: #e07a4d;
+    --clay-soft: #33190f;
+    --stored: #2a1f24;
+    --incoming: #142824;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-verdigris: var(--verdigris);
+  --color-verdigris-soft: var(--verdigris-soft);
+  --color-clay: var(--clay);
+  --color-clay-soft: var(--clay-soft);
+  --color-stored: var(--stored);
+  --color-incoming: var(--incoming);
+
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--verdigris);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.settle {
+  animation: settle 0.28s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
