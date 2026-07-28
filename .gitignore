@@ -1,9 +1,17 @@
+# Python
 .venv/
 __pycache__/
 *.py[cod]
-.env
-.pytest_cache/
 *.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
 dist/
-build/
+
+# Local config
+.env
+.env.local
+
+# OS
 .DS_Store

@@ -1,19 +1,17 @@
 """Embeddings: local ONNX by default, any OpenAI-compatible endpoint if configured."""
 
+import functools
+
 import httpx
 
 from . import config
 
-_local = None
 
-
+@functools.cache
 def _local_model():
-    global _local
-    if _local is None:
-        from fastembed import TextEmbedding
+    from fastembed import TextEmbedding
 
-        _local = TextEmbedding(model_name=config.EMBED_MODEL)
-    return _local
+    return TextEmbedding(model_name=config.EMBED_MODEL)
 
 
 def embed(texts: list[str]) -> list[list[float]]:
@@ -21,9 +19,9 @@ def embed(texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
 
-    if config.EMBED_API_BASE:
+    if config.EMBED_PROVIDER == "remote":
         response = httpx.post(
-            f"{config.EMBED_API_BASE}/embeddings",
+            f"{config.EMBED_BASE_URL.rstrip('/')}/embeddings",
             headers={"Authorization": f"Bearer {config.EMBED_API_KEY}"},
             json={"model": config.EMBED_MODEL, "input": texts},
             timeout=120,
