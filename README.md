@@ -17,7 +17,11 @@ Knowledge Extractor makes knowledge capture a **review**, in four steps:
 | **3. Decide** | Each claim is checked against what is already stored. Anything that collides is shown side by side — stored vs yours — and you are the tie-breaker. | ⏸ **human gate** |
 | **4. Commit** | Only now is anything written. Nothing is ever deleted: a claim that loses is kept and marked as superseded by the one that won. |
 
-Then the other half: **ask it questions**. Answers come only from claims a human
+Progress is real, not a spinner: the pipeline forwards LangGraph's own node
+updates over SSE, so you see *"Found 4 claims · comparing against 128 stored
+claims"* while it works.
+
+Then the other half: **ask it questions** (⌘K). Answers come only from claims a human
 approved, and cite the exact claims they used.
 
 Other agents get the same surface. It speaks **A2A** (agent-to-agent) and
@@ -59,6 +63,8 @@ teams actually run in production in 2026.
 | Embeddings | **fastembed** (ONNX, CPU) | ~90 MB, multilingual, no PyTorch, no GPU, no extra service. Swappable for any OpenAI-compatible `/embeddings` endpoint. |
 | API | **FastAPI** | Pydantic schemas are already there; OpenAPI docs come free at `/docs`. |
 | Frontend | **React 19 + TypeScript + Vite + Tailwind v4** | The default enterprise SPA stack. No SSR here on purpose — see `docs/decisions.md`. |
+| i18n | **react-i18next** (English, Spanish) | Browser-detected, remembered, and the Spanish catalogue is type-checked against the English one. |
+| Motion | **CSS only** | No animation library: CSS runs off the main thread, which is where you want it while an LLM response is being parsed. |
 | Agent surfaces | **A2A** (`a2a-sdk`) and **MCP** (`mcp`) | The two protocols that matter, and they are complementary rather than competing. `docs/protocols.md` explains the difference. |
 
 Everything is open source and runs on a laptop, offline, with no API key.
@@ -127,9 +133,10 @@ cd backend && .venv/bin/python -m pytest    # no database or model needed
 
 ## Status
 
-Working end to end: capture → confirm → conflicts → commit, hybrid search,
-cited answers, A2A and MCP surfaces. Not yet: multimodal capture (images and
-files), authentication, and per-team isolation. See the issues.
+Working end to end: capture → confirm → conflicts → commit, streamed progress,
+hybrid search, cited answers (⌘K), English and Spanish, A2A and MCP surfaces.
+Not yet: multimodal capture (images and files), authentication, and per-team
+isolation. See the issues.
 
 ## License
 

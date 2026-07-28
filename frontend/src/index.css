@@ -1,49 +1,73 @@
 @import "tailwindcss";
 
-/* Cool paper and ink, with verdigris as the one identity colour — the patina
-   of something that has been accumulating for a while, which is what a
+/* ─────────────────────────────────────────────────────────────────────────
+   Colour
+
+   Cool paper and ink, with verdigris as the single identity colour — the
+   patina of something that has been accumulating for a while, which is what a
    knowledge base is. Clay is reserved strictly for conflict state, so seeing
-   it always means a human has to decide something. */
+   it anywhere always means a human has to decide something.
+
+   Dark mode is built, not inverted: surfaces get *lighter* as they come
+   forward, and the lines get slightly warmer so cards separate from the page
+   without needing borders you can count.
+   ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --paper: #f5f7f8;
+  --paper: #f4f6f8;
   --surface: #ffffff;
-  --sunken: #eceff2;
-  --ink: #10131a;
-  --muted: #667080;
-  --line: #dfe4ea;
-  --verdigris: #0d7a6b;
-  --verdigris-soft: #e2f1ee;
-  --clay: #b03e12;
-  --clay-soft: #fbeae2;
-  --stored: #f4eef1;
-  --incoming: #e7f2ef;
+  --raised: #ffffff;
+  --sunken: #e9edf1;
+  --ink: #0f1319;
+  --muted: #626c7a;
+  --faint: #8b95a3;
+  --line: #dde3e9;
+  --line-strong: #c8d1da;
+  --verdigris: #0b7364;
+  --verdigris-ink: #075246;
+  --verdigris-soft: #dcefeb;
+  --clay: #a83c12;
+  --clay-soft: #fbe9e0;
+  --stored: #f5eef0;
+  --incoming: #e4f1ed;
+  --shadow: 0 1px 2px rgb(15 19 25 / 0.04), 0 8px 24px -12px rgb(15 19 25 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(15 19 25 / 0.05), 0 16px 40px -16px rgb(15 19 25 / 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0d1016;
-    --surface: #151a22;
-    --sunken: #1b2029;
-    --ink: #e8ebf0;
-    --muted: #8b95a5;
-    --line: #262d38;
-    --verdigris: #3fbfa8;
-    --verdigris-soft: #10302c;
-    --clay: #e07a4d;
-    --clay-soft: #33190f;
-    --stored: #2a1f24;
-    --incoming: #142824;
+    --paper: #0b0e13;
+    --surface: #141920;
+    --raised: #1a2029;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --muted: #96a1b0;
+    --faint: #6b7686;
+    --line: #232b35;
+    --line-strong: #323c49;
+    --verdigris: #45c9b0;
+    --verdigris-ink: #7fe0cc;
+    --verdigris-soft: #0e2f2a;
+    --clay: #ef8a5c;
+    --clay-soft: #2e1710;
+    --stored: #241a1f;
+    --incoming: #10261f;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 16px 40px -16px rgb(0 0 0 / 0.8);
   }
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-sunken: var(--sunken);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-verdigris: var(--verdigris);
+  --color-verdigris-ink: var(--verdigris-ink);
   --color-verdigris-soft: var(--verdigris-soft);
   --color-clay: var(--clay);
   --color-clay-soft: var(--clay-soft);
@@ -53,6 +77,29 @@
   --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shadow-card: var(--shadow);
+  --shadow-lifted: var(--shadow-lift);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Motion
+
+   The built-in CSS easings are too weak to read as intentional. These are the
+   stronger variants. `ease-in` is deliberately absent: it delays the first
+   moment of movement, which is exactly when the user is looking.
+
+   Durations follow frequency. Anything the user triggers constantly (button
+   press) is under 200ms; anything they see once per capture (a step change)
+   can take 260ms. The command palette has no animation at all — it is
+   keyboard-initiated and opened dozens of times a day.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --press: 160ms;
+  --step: 260ms;
+  --state: 200ms;
 }
 
 html {
@@ -60,29 +107,85 @@ html {
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--verdigris-soft);
+  color: var(--verdigris-ink);
 }
 
 :focus-visible {
   outline: 2px solid var(--verdigris);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
+/* Entering, not appearing from nothing: 6px of travel and a hair of scale so
+   the element reads as arriving rather than blinking into place. */
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.995);
+  }
+}
+
+.enter {
+  animation: enter var(--step) var(--ease-out) both;
+}
+
+/* Stagger is decorative and must never gate interaction, so it is a delay on
+   an animation that has already reached its resting state in the DOM. */
+.stagger > * {
+  animation: enter var(--step) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* The merge lane opens with grid rows rather than a measured height: 0fr → 1fr
+   animates without JavaScript and without hardcoding a pixel value. */
+.reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition:
+    grid-template-rows var(--step) var(--ease-out),
+    opacity var(--state) var(--ease-out);
+  opacity: 0;
+}
+.reveal[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.reveal > * {
+  overflow: hidden;
+}
+
+/* Reduced motion means gentler, not none: comprehension-carrying opacity
+   stays, movement goes. */
 @media (prefers-reduced-motion: reduce) {
+  @keyframes enter {
+    from {
+      opacity: 0;
+    }
+  }
+  .stagger > * {
+    animation-delay: 0ms;
+  }
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 120ms !important;
   }
 }
 
-@keyframes settle {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-.settle {
-  animation: settle 0.28s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+/* Textareas that hold a claim hug their content instead of reserving empty
+   rows. `rows` stays as the pre-`field-sizing` fallback. */
+.autosize {
+  field-sizing: content;
+  min-height: 1lh;
 }

@@ -162,6 +162,14 @@ def neighbours(embedding, k: int, max_distance: float) -> list[StoredClaim]:
     return [StoredClaim(**r) for r in rows if r["distance"] <= max_distance]
 
 
+def count() -> int:
+    """How many live claims exist. Shown in the progress UI so "comparing
+    against 128 claims" is a real number rather than a reassuring noise."""
+    with pool().connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM knowledge WHERE superseded_by IS NULL")
+        return cur.fetchone()[0]
+
+
 def live(limit: int = 200) -> list[StoredClaim]:
     with pool().connection() as conn, conn.cursor() as cur:
         cur.execute(

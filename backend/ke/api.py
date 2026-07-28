@@ -6,13 +6,16 @@ sync. Async handlers would need an async checkpointer and pool for no gain at
 this scale.
 """
 
+import json
 import tempfile
 import uuid
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from langgraph.types import Command
 
 from . import ask as ask_module
@@ -96,31 +99,98 @@ def _state(session_id: str) -> SessionState:
     )
 
 
+# --- progress streaming -------------------------------------------------
+#
+# The graph does two slow things: one LLM call to extract, then one per claim
+# that has neighbours. A spinner would hide all of that. Instead we forward
+# LangGraph's own node updates as Server-Sent Events, so the UI can say what is
+# actually happening and how much of it there is.
+#
+# Both endpoints below serve JSON by default and SSE when the caller asks for
+# it, so agent callers over MCP/A2A are unaffected.
+
+
+def _wants_stream(request: Request) -> bool:
+    return "text/event-stream" in request.headers.get("accept", "")
+
+
+def _progress(session_id: str, runner) -> Iterator[dict]:
+    """Translate LangGraph node updates into UI progress events."""
+    yield {"type": "progress", "step": "reading"}
+    for chunk in runner:
+        for node, update in (chunk or {}).items():
+            if node == "extract":
+                yield {
+                    "type": "progress",
+                    "step": "extracted",
+                    "count": len(update.get("claims") or []),
+                    "against": store.count(),
+                }
+            elif node == "detect":
+                yield {
+                    "type": "progress",
+                    "step": "compared",
+                    "count": len(update.get("conflicts") or []),
+                }
+            elif node == "commit":
+                yield {
+                    "type": "progress",
+                    "step": "committed",
+                    "count": len(update.get("committed") or []),
+                }
+    yield {"type": "state", "state": _state(session_id).model_dump()}
+
+
+def _sse(events: Iterator[dict]) -> StreamingResponse:
+    def encode():
+        try:
+            for event in events:
+                yield f"data: {json.dumps(event, default=str)}\n\n"
+        except Exception as error:  # surface failures on the stream, not as a hang
+            yield f"data: {json.dumps({'type': 'error', 'detail': str(error)})}\n\n"
+
+    return StreamingResponse(
+        encode(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 # --- the review workflow ------------------------------------------------
 
 
-@app.post("/api/sessions", response_model=SessionState, tags=["review"])
-def capture(body: CaptureRequest) -> SessionState:
+@app.post("/api/sessions", response_model=None, tags=["review"])
+def capture(body: CaptureRequest, request: Request) -> SessionState | StreamingResponse:
     """Step 1 -> 2. Extract claims and pause for confirmation."""
     if not body.text.strip():
         raise HTTPException(400, "text is empty")
     session_id = str(uuid.uuid4())
-    graph.graph().invoke(
-        {"raw_text": body.text, "author": body.author, "source": body.source},
-        _config(session_id),
-    )
+    start = {"raw_text": body.text, "author": body.author, "source": body.source}
+    if _wants_stream(request):
+        runner = graph.graph().stream(start, _config(session_id), stream_mode="updates")
+        return _sse(_progress(session_id, runner))
+    graph.graph().invoke(start, _config(session_id))
     return _state(session_id)
 
 
-@app.post("/api/sessions/{session_id}/confirm", response_model=SessionState, tags=["review"])
-def confirm(session_id: str, body: ConfirmRequest) -> SessionState:
+@app.post("/api/sessions/{session_id}/confirm", response_model=None, tags=["review"])
+def confirm(
+    session_id: str, body: ConfirmRequest, request: Request
+) -> SessionState | StreamingResponse:
     """Step 2 -> 3. Accept the claims (or send a clarification to re-extract)."""
-    _resume(
-        session_id,
+    resume = (
         {"clarification": body.clarification}
         if body.clarification
-        else {"claims": [c.model_dump() for c in body.claims]},
+        else {"claims": [c.model_dump() for c in body.claims]}
     )
+    _, interrupt = _pending(session_id)
+    if interrupt is None:
+        raise HTTPException(409, "session is not waiting for input")
+    command = Command(resume={interrupt.id: resume})
+    if _wants_stream(request):
+        runner = graph.graph().stream(command, _config(session_id), stream_mode="updates")
+        return _sse(_progress(session_id, runner))
+    graph.graph().invoke(command, _config(session_id))
     return _state(session_id)
 
 

@@ -20,18 +20,73 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json();
 }
 
-export const api = {
-  capture: (text: string, author?: string) =>
-    request<SessionState>("/api/sessions", {
-      method: "POST",
-      body: JSON.stringify({ text, author: author || null, source: "web" }),
-    }),
+/** Progress events the backend forwards from LangGraph's own node updates. */
+export type Progress =
+  | { type: "progress"; step: "reading" }
+  | { type: "progress"; step: "extracted"; count: number; against: number }
+  | { type: "progress"; step: "compared"; count: number }
+  | { type: "progress"; step: "committed"; count: number };
 
-  confirm: (sessionId: string, claims: ClaimDraft[], clarification?: string) =>
-    request<SessionState>(`/api/sessions/${sessionId}/confirm`, {
-      method: "POST",
-      body: JSON.stringify({ claims, clarification: clarification || null }),
-    }),
+/**
+ * POST and read the Server-Sent Events response.
+ *
+ * `EventSource` only speaks GET, so the stream is read off `fetch`. Events are
+ * split on the blank-line delimiter and the tail is carried between chunks —
+ * an SSE frame is not guaranteed to arrive whole.
+ */
+async function stream(
+  path: string,
+  body: unknown,
+  onProgress: (event: Progress) => void,
+): Promise<SessionState> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok || !response.body) {
+    const failed = await response.json().catch(() => ({}));
+    throw new Error(failed.detail ?? `${response.status} ${response.statusText}`);
+  }
+
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  let final: SessionState | null = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += value;
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const line = frame.trim();
+      if (!line.startsWith("data:")) continue;
+      const event = JSON.parse(line.slice(5));
+      if (event.type === "state") final = event.state as SessionState;
+      else if (event.type === "error") throw new Error(event.detail);
+      else onProgress(event as Progress);
+    }
+  }
+  if (!final) throw new Error("The stream ended before the review reached a step.");
+  return final;
+}
+
+export const api = {
+  capture: (text: string, author: string | undefined, onProgress: (e: Progress) => void) =>
+    stream("/api/sessions", { text, author: author || null, source: "web" }, onProgress),
+
+  confirm: (
+    sessionId: string,
+    claims: ClaimDraft[],
+    clarification: string | undefined,
+    onProgress: (e: Progress) => void,
+  ) =>
+    stream(
+      `/api/sessions/${sessionId}/confirm`,
+      { claims, clarification: clarification || null },
+      onProgress,
+    ),
 
   resolve: (sessionId: string, resolutions: Record<string, Resolution>) =>
     request<SessionState>(`/api/sessions/${sessionId}/resolve`, {
