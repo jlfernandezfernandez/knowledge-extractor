@@ -247,3 +247,48 @@ seconds** with *worse* claims; turning thinking off made it work in **8**.
 
 Extraction and 4-way classification are not reasoning tasks. The reasoning
 budget belongs to the human reading step 2.
+
+---
+
+### The review is a deck, not a form
+
+**Chosen.** Four full-stage slides — say it, review, decide, saved — with a
+stepper in the chrome, one idea per slide, and directional transitions.
+
+The reasoning is that this interaction *is an interview*. A form asks you to
+fill in fields you can see all at once; an interview asks one thing, waits, and
+moves on. Slides match the second, and they make the review feel finite:
+you can see there are four, and you can see which one you are on.
+
+**Rejected:** the earlier left rail. It read as a table of contents — passive,
+something you consult — rather than progress you are making. Nothing moved
+between steps, so the flow felt like swapping panels in a settings screen.
+
+**How the motion works.** Advancing sends the current slide out to the left and
+brings the next in from the right; going back mirrors it exactly, so enter and
+exit share a path and the spatial relationship holds. This uses the **View
+Transitions API** rather than a hand-rolled carousel: the browser snapshots
+both states itself, so slides of very different heights cross without a layout
+jump and without keeping the outgoing React tree mounted. Browsers without it
+get an instant swap, which is fine.
+
+**The action bar is sticky.** A slide can be taller than the viewport — five
+claims to review, three conflicts to settle — and the way forward must never be
+something you scroll to find. Same position on every slide, so advancing
+becomes muscle memory.
+
+**The stepper has four dots for five states.** `detecting` is a loading state
+between *review* and *decide*, so it advances the track without claiming a dot
+of its own. An earlier version had a dot per backend stage, which meant the
+first slide highlighted nothing and read as broken.
+
+---
+
+### No language picker
+
+**Chosen.** Detect from the browser, remember the choice, and show no control.
+
+**Rejected:** the language `<select>` that shipped with i18n. It sat in the
+chrome of every screen, competing with the two things that matter there — where
+you are, and how to ask a question — for a control almost nobody touches once.
+The detector is right the first time; i18n stayed, the widget went.

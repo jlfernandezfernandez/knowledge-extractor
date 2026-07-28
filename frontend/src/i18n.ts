@@ -4,15 +4,17 @@ import { initReactI18next } from "react-i18next";
 import { en } from "./locales/en";
 import { es } from "./locales/es";
 
-export const LANGUAGES = { en: "English", es: "Español" } as const;
-export type Language = keyof typeof LANGUAGES;
+// Detected from the browser and remembered. There is deliberately no picker:
+// a language switcher in the chrome is a control almost nobody touches, and
+// the detector is right the first time.
+const LANGUAGES = ["en", "es"] as const;
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: { en: { translation: en }, es: { translation: es } },
-    supportedLngs: Object.keys(LANGUAGES),
+    supportedLngs: LANGUAGES,
     fallbackLng: "en",
     // The browser's own language is the right first guess; the explicit choice
     // is remembered so it survives a reload.
@@ -28,7 +30,3 @@ applyLanguage(i18n.resolvedLanguage ?? "en");
 i18n.on("languageChanged", applyLanguage);
 
 export default i18n;
-
-/** The language to answer in. The backend is told to reply in the question's
- *  language, but stating it explicitly removes the guesswork on short queries. */
-export const currentLanguage = () => (i18n.resolvedLanguage ?? "en") as Language;

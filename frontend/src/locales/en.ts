@@ -2,17 +2,14 @@ export const en = {
   app: {
     tagline: "Get what one person knows into what everyone can query",
     ask: "Ask",
-    language: "Language",
+    restart: "Start over",
   },
-  rail: {
-    understand: "Understand",
-    understandNote: "what the model heard",
-    compare: "Compare",
-    compareNote: "against what is stored",
+  stepper: {
+    label: "Progress",
+    say: "Say it",
+    review: "Review",
     decide: "Decide",
-    decideNote: "which claim wins",
-    commit: "Commit",
-    commitNote: "written and indexed",
+    commit: "Saved",
   },
   progress: {
     reading: "Reading what you said",
@@ -75,6 +72,7 @@ export const en = {
   done: {
     eyebrow: "Committed",
     titleNone: "Nothing new to store",
+    lead: "They are searchable now — ⌘K asks the knowledge base, not the model.",
     title_one: "{{count}} claim indexed",
     title_other: "{{count}} claims indexed",
     replaced_one: "replaced {{count}} stored claim",

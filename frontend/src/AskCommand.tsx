@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "./api";
 import type { AskResponse } from "./types";
-import { Eyebrow, Problem } from "./ui";
+import { Kicker, Problem } from "./ui";
 
 /**
  * The question surface, as a command palette.
@@ -113,7 +113,7 @@ export function AskCommand({ open, onClose }: { open: boolean; onClose: () => vo
             <div className="enter">
               <p className="text-[15px] leading-relaxed">{result.answer}</p>
               <div className="mt-6">
-                <Eyebrow>{t("ask.drawnFrom")}</Eyebrow>
+                <Kicker>{t("ask.drawnFrom")}</Kicker>
               </div>
               <ul className="stagger space-y-2">
                 {result.sources.map((claim, index) => (

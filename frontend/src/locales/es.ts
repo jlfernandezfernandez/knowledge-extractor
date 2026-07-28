@@ -6,17 +6,14 @@ export const es: typeof en = {
   app: {
     tagline: "Lo que sabe una persona, donde todo el mundo pueda consultarlo",
     ask: "Preguntar",
-    language: "Idioma",
+    restart: "Empezar de nuevo",
   },
-  rail: {
-    understand: "Entender",
-    understandNote: "qué ha escuchado el modelo",
-    compare: "Comparar",
-    compareNote: "con lo que ya está guardado",
+  stepper: {
+    label: "Progreso",
+    say: "Contar",
+    review: "Revisar",
     decide: "Decidir",
-    decideNote: "qué versión gana",
-    commit: "Guardar",
-    commitNote: "escrito e indexado",
+    commit: "Guardado",
   },
   progress: {
     reading: "Leyendo lo que has dicho",
@@ -79,6 +76,7 @@ export const es: typeof en = {
   done: {
     eyebrow: "Guardado",
     titleNone: "No había nada nuevo que guardar",
+    lead: "Ya se pueden consultar — ⌘K pregunta a la base de conocimiento, no al modelo.",
     title_one: "{{count}} idea indexada",
     title_other: "{{count}} ideas indexadas",
     replaced_one: "reemplaza {{count}} idea guardada",

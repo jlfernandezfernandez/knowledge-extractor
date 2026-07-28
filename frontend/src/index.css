@@ -9,8 +9,7 @@
    it anywhere always means a human has to decide something.
 
    Dark mode is built, not inverted: surfaces get *lighter* as they come
-   forward, and the lines get slightly warmer so cards separate from the page
-   without needing borders you can count.
+   forward, so depth reads without borders you have to count.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   --paper: #f4f6f8;
@@ -18,10 +17,10 @@
   --raised: #ffffff;
   --sunken: #e9edf1;
   --ink: #0f1319;
-  --muted: #626c7a;
+  --muted: #5d6773;
   --faint: #8b95a3;
   --line: #dde3e9;
-  --line-strong: #c8d1da;
+  --line-strong: #c5cfd9;
   --verdigris: #0b7364;
   --verdigris-ink: #075246;
   --verdigris-soft: #dcefeb;
@@ -29,30 +28,30 @@
   --clay-soft: #fbe9e0;
   --stored: #f5eef0;
   --incoming: #e4f1ed;
-  --shadow: 0 1px 2px rgb(15 19 25 / 0.04), 0 8px 24px -12px rgb(15 19 25 / 0.12);
-  --shadow-lift: 0 2px 4px rgb(15 19 25 / 0.05), 0 16px 40px -16px rgb(15 19 25 / 0.22);
+  --shadow: 0 1px 2px rgb(15 19 25 / 0.04), 0 10px 30px -14px rgb(15 19 25 / 0.14);
+  --shadow-lift: 0 2px 4px rgb(15 19 25 / 0.05), 0 24px 60px -20px rgb(15 19 25 / 0.28);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0b0e13;
+    --paper: #0a0d12;
     --surface: #141920;
-    --raised: #1a2029;
+    --raised: #1b212a;
     --sunken: #10151b;
     --ink: #e9edf2;
-    --muted: #96a1b0;
+    --muted: #9aa5b3;
     --faint: #6b7686;
     --line: #232b35;
-    --line-strong: #323c49;
+    --line-strong: #364150;
     --verdigris: #45c9b0;
-    --verdigris-ink: #7fe0cc;
+    --verdigris-ink: #8fe8d5;
     --verdigris-soft: #0e2f2a;
     --clay: #ef8a5c;
     --clay-soft: #2e1710;
     --stored: #241a1f;
     --incoming: #10261f;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
-    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 16px 40px -16px rgb(0 0 0 / 0.8);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -14px rgb(0 0 0 / 0.7);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 24px 60px -20px rgb(0 0 0 / 0.85);
   }
 }
 
@@ -85,20 +84,19 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Motion
 
-   The built-in CSS easings are too weak to read as intentional. These are the
-   stronger variants. `ease-in` is deliberately absent: it delays the first
-   moment of movement, which is exactly when the user is looking.
+   Stronger curves than the built-in ones, which are too weak to read as
+   intentional. `ease-in` is absent on purpose: it delays the first moment of
+   movement, which is exactly when the user is looking.
 
-   Durations follow frequency. Anything the user triggers constantly (button
-   press) is under 200ms; anything they see once per capture (a step change)
-   can take 260ms. The command palette has no animation at all — it is
-   keyboard-initiated and opened dozens of times a day.
+   Duration follows frequency. Button press 160ms; a slide change, seen once
+   per step, 320ms. The ⌘K palette has none at all — it is keyboard-initiated
+   and opened constantly, where an entrance animation reads as lag.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --press: 160ms;
-  --step: 260ms;
+  --slide: 320ms;
   --state: 200ms;
 }
 
@@ -106,6 +104,7 @@ html {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
+  font-size: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -117,45 +116,102 @@ html {
 
 :focus-visible {
   outline: 2px solid var(--verdigris);
-  outline-offset: 2px;
-  border-radius: 6px;
+  outline-offset: 3px;
+  border-radius: 8px;
 }
 
-/* Entering, not appearing from nothing: 6px of travel and a hair of scale so
-   the element reads as arriving rather than blinking into place. */
-@keyframes enter {
+/* ── Slide transitions ────────────────────────────────────────────────────
+   The deck moves. Advancing brings the next slide in from the right and
+   takes the current one out to the left; going back mirrors it exactly —
+   enter and exit along the same path, so the spatial relationship holds.
+
+   This uses the View Transitions API rather than a hand-rolled two-panel
+   carousel: the browser snapshots both states itself, so slides of different
+   heights cross without a layout jump and without keeping the outgoing React
+   tree mounted. Browsers without it simply get an instant swap.
+   ──────────────────────────────────────────────────────────────────────── */
+@keyframes slide-from-right {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.995);
+    transform: translateX(28px);
+  }
+}
+@keyframes slide-to-left {
+  to {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+@keyframes slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+@keyframes slide-to-right {
+  to {
+    opacity: 0;
+    transform: translateX(28px);
   }
 }
 
-.enter {
-  animation: enter var(--step) var(--ease-out) both;
+::view-transition-old(slide),
+::view-transition-new(slide) {
+  /* Both halves are absolutely positioned by the browser; keep them stacked
+     on the same origin so the cross does not jump. */
+  animation-duration: var(--slide);
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: both;
+  mix-blend-mode: normal;
 }
 
-/* Stagger is decorative and must never gate interaction, so it is a delay on
-   an animation that has already reached its resting state in the DOM. */
+html[data-direction="forward"]::view-transition-old(slide) {
+  animation-name: slide-to-left;
+  animation-duration: 180ms; /* leaving is faster than arriving */
+}
+html[data-direction="forward"]::view-transition-new(slide) {
+  animation-name: slide-from-right;
+}
+html[data-direction="back"]::view-transition-old(slide) {
+  animation-name: slide-to-right;
+  animation-duration: 180ms;
+}
+html[data-direction="back"]::view-transition-new(slide) {
+  animation-name: slide-from-left;
+}
+
+/* Entering, not appearing from nothing. */
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.enter {
+  animation: enter var(--slide) var(--ease-out) both;
+}
+
+/* Stagger is decorative and never gates interaction. */
 .stagger > * {
-  animation: enter var(--step) var(--ease-out) both;
+  animation: enter var(--slide) var(--ease-out) both;
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 
 @keyframes breathe {
   50% {
-    opacity: 0.35;
+    opacity: 0.3;
   }
 }
 
-/* The merge lane opens with grid rows rather than a measured height: 0fr → 1fr
-   animates without JavaScript and without hardcoding a pixel value. */
+/* The merge lane opens with grid rows: 0fr → 1fr animates without measuring
+   a height in JavaScript. */
 .reveal {
   display: grid;
   grid-template-rows: 0fr;
-  transition:
-    grid-template-rows var(--step) var(--ease-out),
-    opacity var(--state) var(--ease-out);
   opacity: 0;
+  transition:
+    grid-template-rows var(--slide) var(--ease-out),
+    opacity var(--state) var(--ease-out);
 }
 .reveal[data-open="true"] {
   grid-template-rows: 1fr;
@@ -165,9 +221,37 @@ html {
   overflow: hidden;
 }
 
-/* Reduced motion means gentler, not none: comprehension-carrying opacity
-   stays, movement goes. */
+/* Textareas that hold a claim hug their content instead of reserving rows. */
+.autosize {
+  field-sizing: content;
+  min-height: 1lh;
+}
+
+/* ── Accessibility ────────────────────────────────────────────────────────
+   Reduced motion is a gentler equivalent, not silence: the opacity changes
+   that carry meaning stay, the travel goes.
+   ──────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
+  @keyframes slide-from-right {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-from-left {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-to-left {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-to-right {
+    to {
+      opacity: 0;
+    }
+  }
   @keyframes enter {
     from {
       opacity: 0;
@@ -183,9 +267,9 @@ html {
   }
 }
 
-/* Textareas that hold a claim hug their content instead of reserving empty
-   rows. `rows` stays as the pre-`field-sizing` fallback. */
-.autosize {
-  field-sizing: content;
-  min-height: 1lh;
+@media (prefers-reduced-transparency: reduce) {
+  .chrome {
+    background: var(--paper);
+    backdrop-filter: none;
+  }
 }
