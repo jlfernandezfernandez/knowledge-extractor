@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from ... import config, wiring
 from ...application import knowledge_bases as kb_service
 from ...application import review as review_service
-from . import health, knowledge, review, speech
+from . import auth, health, interviews, knowledge, review, speech
 
 
 @asynccontextmanager
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.CORS_ORIGINS,
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -61,6 +62,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(kb_service.SlugTaken, _status(409))
 
     app.include_router(review.router)
+    app.include_router(auth.router)
+    app.include_router(interviews.router)
     app.include_router(knowledge.router)
     app.include_router(speech.router)
     app.include_router(health.router)

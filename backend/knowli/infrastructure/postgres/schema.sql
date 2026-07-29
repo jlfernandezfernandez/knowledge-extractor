@@ -143,3 +143,61 @@ CREATE TABLE IF NOT EXISTS review_session (
 );
 CREATE INDEX IF NOT EXISTS review_session_recent_idx
     ON review_session (knowledge_base_id, created_at DESC);
+
+-- --- Product identity and team scope ----------------------------------
+CREATE TABLE IF NOT EXISTS app_user (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    email text UNIQUE NOT NULL,
+    display_name text NOT NULL,
+    password_hash text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE review_session ADD COLUMN IF NOT EXISTS contributor_id uuid REFERENCES app_user(id);
+ALTER TABLE review_session ADD COLUMN IF NOT EXISTS interview_id uuid;
+ALTER TABLE review_session ADD COLUMN IF NOT EXISTS contribution_kind text NOT NULL DEFAULT 'voluntary';
+CREATE TABLE IF NOT EXISTS organisation (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS team (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    organisation_id uuid NOT NULL REFERENCES organisation(id),
+    name text NOT NULL,
+    knowledge_base_id uuid NOT NULL REFERENCES knowledge_base(id),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS team_member (
+    team_id uuid NOT NULL REFERENCES team(id),
+    user_id uuid NOT NULL REFERENCES app_user(id),
+    PRIMARY KEY (team_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS app_session (
+    token_hash text PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES app_user(id),
+    expires_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS interview (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id uuid NOT NULL REFERENCES team(id),
+    requester_id uuid NOT NULL REFERENCES app_user(id),
+    assignee_id uuid NOT NULL REFERENCES app_user(id),
+    title text NOT NULL,
+    brief text NOT NULL DEFAULT '',
+    session_id uuid REFERENCES review_session(id),
+    status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'started', 'done')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    started_at timestamptz,
+    completed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS interview_assignee_idx ON interview (assignee_id, status, created_at DESC);
+CREATE TABLE IF NOT EXISTS audit_event (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id uuid NOT NULL REFERENCES team(id),
+    actor_id uuid NOT NULL REFERENCES app_user(id),
+    kind text NOT NULL,
+    subject_id uuid,
+    detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+);

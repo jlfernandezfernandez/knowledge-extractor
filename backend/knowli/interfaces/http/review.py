@@ -15,6 +15,8 @@ from .schemas import (
     SessionSummary,
 )
 from .sse import progress, sse, wants_stream
+from .auth import member
+from ...infrastructure.postgres.pool import pool
 
 router = APIRouter(tags=["review"])
 
@@ -38,7 +40,12 @@ def capture(body: CaptureRequest, request: Request) -> SessionState | StreamingR
     """Step 1 -> 2. Extract claims and pause for confirmation."""
     if not body.text.strip():
         raise HTTPException(400, "text is empty")
+    user = member(request)
     session_id = str(uuid.uuid4())  # LangGraph's thread id
+    body.knowledge_base = user["team"]["knowledge_base"]
+    body.author = user["name"]
+    with pool().connection() as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO audit_event (team_id,actor_id,kind,subject_id) VALUES (%s,%s,'contribution_started',%s)", (user["team"]["id"], user["id"], session_id))
     runner = review.start(
         session_id, body.text, body.author, body.source, body.knowledge_base
     )

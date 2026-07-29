@@ -1,98 +1,34 @@
-import { useEffect, useRef, useState } from "react";
-import { Toaster } from "@/components/ui/sonner";
-import { Sidebar } from "@/components/layout/sidebar";
-import { TopBar } from "@/components/layout/top-bar";
-import { AskDialog } from "@/components/ask/ask-dialog";
+import { useEffect, useState } from "react";
 import { ReviewFlow } from "@/components/review/review-flow";
-import { useAuthor } from "@/hooks/use-author";
-import { useHotkey } from "@/hooks/use-hotkey";
-import { useKnowledgeBases } from "@/hooks/use-knowledge-bases";
+import { Toaster } from "@/components/ui/sonner";
 import { useReview } from "@/hooks/use-review";
+import { API_URL, request } from "@/lib/api/client";
 
-/**
- * Two panes: what you are feeding and what you have fed it on the left, the
- * review itself on the right.
- *
- * The stage is the only thing that scrolls, and the only thing that carries a
- * `view-transition-name` — the rail and the bar stay put while a step slides,
- * which is what keeps the app from feeling like it reloads on every click.
- */
+type User = { id: string; name: string; email: string; team: { id: string; name: string; knowledge_base: string } };
+type Interview = { id: string; title: string; brief: string; status: string; requester: string };
+
 export default function App() {
   const review = useReview();
-  const bases = useKnowledgeBases();
-  const [author, setAuthor] = useAuthor();
-  const [asking, setAsking] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const stageRef = useRef<HTMLDivElement>(null);
-
-  // ⌘K, the shortcut every tool this sits next to already uses.
-  useHotkey("k", () => setAsking((open) => !open));
-
-  // A new step starts at the top of itself, not where the last one was read to.
-  useEffect(() => {
-    stageRef.current?.scrollTo({ top: 0 });
-  }, [review.stage]);
-
-  const closeMenu = () => setMenuOpen(false);
-  const ask = () => {
-    setAsking(true);
-    closeMenu();
+  const [user, setUser] = useState<User | null>(null);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const inReview = /^\/review\//.test(location.pathname) || review.session !== null || location.pathname === "/contribute";
+  const refresh = async () => {
+    try {
+      const me = await request<{ user: User }>("/api/auth/me");
+      setUser(me.user);
+      setInterviews((await request<{ items: Interview[] }>("/api/interviews")).items);
+    } catch { setUser(null); } finally { setLoading(false); }
   };
+  useEffect(() => { void refresh(); }, []);
+  if (loading) return null;
+  if (!user) return <Auth onSuccess={refresh} />;
+  if (inReview) return <main className="h-dvh"><ReviewFlow review={review} author={user.name} knowledgeBase={user.team.knowledge_base} onCommitted={() => { location.assign("/"); }} /></main>;
+  return <main className="mx-auto min-h-dvh max-w-3xl px-5 py-8"><header className="mb-12 flex items-center justify-between"><div><h1 className="text-xl font-semibold">Knowli</h1><p className="text-sm text-muted-foreground">{user.team.name}</p></div><button className="text-sm" onClick={() => fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include" }).then(() => setUser(null))}>{user.name} · Salir</button></header><button className="mb-10 rounded-xl bg-primary px-4 py-3 text-primary-foreground" onClick={() => { history.pushState(null, "", "/contribute"); review.reset(); }}>Aportar conocimiento</button><section className="mb-10"><h2 className="mb-3 text-lg font-semibold">Entrevistas pendientes</h2>{interviews.filter((i) => i.status === "pending").length ? interviews.filter((i) => i.status === "pending").map((i) => <article className="mb-2 rounded-xl border p-4" key={i.id}><strong>{i.title}</strong><p className="text-sm text-muted-foreground">{i.brief || `Solicitada por ${i.requester}`}</p></article>) : <p className="text-sm text-muted-foreground">No tienes entrevistas pendientes.</p>}</section><section><h2 className="mb-3 text-lg font-semibold">Histórico</h2><p className="text-sm text-muted-foreground">Tus próximas aportaciones y entrevistas aparecerán aquí.</p></section><Toaster position="bottom-right" /></main>;
+}
 
-  return (
-    <div className="flex h-dvh overflow-hidden">
-      <Sidebar
-        bases={bases}
-        // The rail lists sessions, so it goes stale the moment a review moves.
-        version={review.version}
-        activeSessionId={review.session?.session_id}
-        onOpenSession={(id) => {
-          review.resume(id);
-          closeMenu();
-        }}
-        author={author}
-        onAuthorChange={setAuthor}
-        onNewCapture={() => {
-          review.reset();
-          closeMenu();
-        }}
-        onAsk={ask}
-        open={menuOpen}
-        onClose={closeMenu}
-      />
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          stage={review.stage}
-          canGoBack={review.canGoBack}
-          onBack={review.back}
-          onAsk={ask}
-          onOpenMenu={() => setMenuOpen(true)}
-        />
-        <main
-          ref={stageRef}
-          className="min-h-0 flex-1 overflow-y-auto"
-          style={{ viewTransitionName: "step" }}
-        >
-          <div className="mx-auto h-full max-w-3xl px-4 sm:px-6">
-            <ReviewFlow
-              review={review}
-              author={author}
-              knowledgeBase={bases.slug}
-              // A commit changes the claim count the picker shows.
-              onCommitted={bases.refresh}
-            />
-          </div>
-        </main>
-      </div>
-
-      <AskDialog
-        open={asking}
-        onClose={() => setAsking(false)}
-        knowledgeBase={bases.slug}
-        knowledgeBaseName={bases.current?.name ?? ""}
-      />
-      <Toaster position="bottom-right" />
-    </div>
-  );
+function Auth({ onSuccess }: { onSuccess: () => Promise<void> }) {
+  const [register, setRegister] = useState(false); const [error, setError] = useState("");
+  async function submit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); const data = Object.fromEntries(new FormData(e.currentTarget)); const r = await fetch(`${API_URL}/api/auth/${register ? "register" : "login"}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }); if (!r.ok) return setError((await r.json()).detail); await onSuccess(); }
+  return <main className="mx-auto flex min-h-dvh max-w-sm items-center px-5"><form className="w-full space-y-3" onSubmit={submit}><h1 className="text-2xl font-semibold">{register ? "Crea tu equipo" : "Entra en Knowli"}</h1>{register && <><input required name="display_name" placeholder="Tu nombre" className="w-full rounded-lg border p-3" /><input name="organisation_name" placeholder="Organización (opcional)" className="w-full rounded-lg border p-3" /></>}<input required name="email" type="email" placeholder="Email" className="w-full rounded-lg border p-3" /><input required name="password" type="password" minLength={8} placeholder="Contraseña" className="w-full rounded-lg border p-3" /><button className="w-full rounded-lg bg-primary p-3 text-primary-foreground">{register ? "Crear cuenta" : "Entrar"}</button>{error && <p className="text-sm text-destructive">{error}</p>}<button type="button" className="text-sm underline" onClick={() => setRegister(!register)}>{register ? "Ya tengo cuenta" : "Crear cuenta"}</button></form></main>;
 }

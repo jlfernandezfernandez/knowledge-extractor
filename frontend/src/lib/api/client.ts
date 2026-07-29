@@ -9,6 +9,7 @@ export async function failure(response: Response): Promise<Error> {
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
+    credentials: "include",
     headers: init?.body instanceof FormData ? {} : { "Content-Type": "application/json" },
     ...init,
   });
