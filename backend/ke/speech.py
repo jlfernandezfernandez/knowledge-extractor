@@ -21,6 +21,7 @@ longer you speak, which is the wrong direction.
 from __future__ import annotations
 
 import logging
+import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Protocol
@@ -32,6 +33,19 @@ from . import config
 log = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16_000
+
+# 628 KB, fetched on first use rather than committed. Model weights do not
+# belong in git, and fastembed already does the same for the embedder.
+VAD_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
+
+
+def _vad_model() -> Path:
+    path = Path(__file__).resolve().parent.parent / "models" / "silero_vad.onnx"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        log.info("Fetching the voice-activity model (628 KB), once: %s", VAD_URL)
+        urllib.request.urlretrieve(VAD_URL, path)  # noqa: S310 — pinned release URL
+    return path
 
 
 class Transcriber(Protocol):
@@ -130,5 +144,4 @@ def create() -> Transcriber:
     provider, model_dir = resolved
     if provider == "whisper":
         return WhisperTranscriber(config.WHISPER_MODEL)
-    vad = Path(__file__).resolve().parent.parent / "models" / "silero_vad.onnx"
-    return ParakeetTranscriber(model_dir, vad)
+    return ParakeetTranscriber(model_dir, _vad_model())

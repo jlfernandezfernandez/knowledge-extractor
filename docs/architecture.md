@@ -21,6 +21,9 @@
               └──────────────────────────────────────────┘
                       ▲                          ▲
              fastembed (ONNX, CPU)      any OpenAI-compatible LLM
+
+      Dictation runs alongside: browser AudioWorklet ──WS──► ke/speech.py
+      (Parakeet TDT via sherpa-onnx, segments closed by a voice-activity detector)
 ```
 
 One database holds all three kinds of state: the vectors, the lexical index,
@@ -40,6 +43,7 @@ restart, and why `docker compose up` is the entire infrastructure.
 | `ke/store.py` | Schema, hybrid search, neighbours, insert/supersede, history. All SQL lives here. |
 | `ke/graph.py` | The workflow: nodes, edges, the two `interrupt()` gates, and the pure `plan()` function. |
 | `ke/ask.py` | Question answering with citations. |
+| `ke/speech.py` | Parakeet or Whisper behind one interface; VAD segmentation for live text. |
 | `ke/api.py` | HTTP. Thin — it translates requests into graph invocations. |
 | `ke/mcp_server.py` | MCP tools over stdio. |
 | `ke/a2a_server.py` | A2A Agent Card + skills. |
@@ -77,6 +81,13 @@ Resumes the paused `confirm` node, **keyed by interrupt id** (see below).
 Resumes `resolve`. `commit` turns the human's decisions into writes via the pure
 `plan()` function, embeds the surviving claims, inserts them, and sets
 `superseded_by` on whatever lost. Response: `stage: "done"`.
+
+### `WS /api/transcribe/live`
+
+The browser streams 16 kHz PCM16 from an `AudioWorklet`. A voice-activity
+detector closes each phrase, that segment alone is decoded, and the text is
+pushed back. Decoding blocks, so it runs in a worker thread — otherwise a long
+segment would stall the event loop and stop the socket draining.
 
 ### `POST /api/ask`
 
@@ -128,16 +139,18 @@ same database. We never touch them directly.
 
 ## Frontend
 
-`frontend/src/` — deliberately five files, no router, no state library:
+`frontend/src/` — no router, no state library:
 
 | File | Role |
 |---|---|
 | `types.ts` | Mirrors `schemas.py`. |
-| `api.ts` | One typed `fetch` wrapper. |
-| `ui.tsx` | Button, stage rail, working indicator, error. |
-| `steps.tsx` | The four steps, including the conflict ledger. |
-| `AskPanel.tsx` | The question surface. |
-| `App.tsx` | Renders the step matching `state.stage`. |
+| `api.ts` | One typed `fetch` wrapper, plus the SSE progress reader. |
+| `useDictation.ts` | Mic → `AudioWorklet` → WebSocket; segments come back as text. |
+| `ui.tsx` | Button, stepper, progress, error. |
+| `steps.tsx` | The four slides, including the conflict cards. |
+| `AskCommand.tsx` | The ⌘K question palette. |
+| `App.tsx` | Renders the slide matching `state.stage`. |
+| `i18n.ts`, `locales/` | English and Spanish, detected from the browser. |
 
 **The frontend has no workflow logic.** It renders whatever `stage` the backend
 reports and posts back. The state machine lives in exactly one place — the

@@ -82,7 +82,8 @@ docker compose up -d                      # Postgres 17 + pgvector
 # Backend
 cd backend
 cp .env.example .env                      # defaults point at a local Ollama
-uv venv && uv pip install -e .
+uv venv && source .venv/bin/activate
+uv pip install -e .
 ke-api                                    # http://127.0.0.1:8000  (docs at /docs)
 
 # Frontend
@@ -93,21 +94,25 @@ npm install && npm run dev                # http://localhost:5173
 ### Running it fully local (recommended on a 16 GB Mac)
 
 ```bash
-ollama pull qwen3.5:9b            # ~6.6 GB — the largest that leaves room to work
-ollama pull qwen3-embedding:0.6b  # optional, stronger multilingual embeddings
+ollama pull qwen3.5:9b   # ~6.6 GB, the largest that leaves room to work
 ```
 
-The `.env.example` defaults are already set for this — including two settings a
-4B model needs in order to work at all. Measured on a MacBook Air M3 / 16 GB:
-20 s to extract, 11 s to detect conflicts, 5 s to answer a question, entirely
-offline. `docs/local-models.md` has the numbers, the two settings, and an
-honest list of what 4B still gets wrong.
+Dictation uses Parakeet TDT, which is the model Orca ships — if you have Orca
+the default path already finds it. Otherwise see
+[`docs/local-models.md`](docs/local-models.md#the-transcriber).
+
+The `.env.example` defaults are already set for this, including two settings a
+local model needs in order to work at all — see
+[`docs/local-models.md`](docs/local-models.md#two-settings-it-needs).
+
+Measured end to end on a MacBook Air M3 / 16 GB, entirely offline: 27 s to
+extract, 11 s to check for conflicts, 5 s to answer a question.
 
 ### Optional extras
 
 ```bash
 cd backend
-uv pip install -e '.[audio]'   # voice capture, local, CPU (faster-whisper)
+uv pip install -e '.[whisper]' # use Whisper for dictation instead of Parakeet
 uv pip install -e '.[a2a]'     # ke-a2a  → agent-to-agent server on :9999
 uv pip install -e '.[mcp]'     # ke-mcp  → MCP server over stdio
 ```
