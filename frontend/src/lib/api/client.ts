@@ -1,4 +1,6 @@
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
+// Keep the host aligned with Vite's `localhost`: an HTTP-only SameSite cookie
+// is not sent to the different 127.0.0.1 site during local development.
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 /** Pull the backend's `detail` out of a failed response, falling back to the
  *  status line. FastAPI always sends one; a proxy in front of it might not. */

@@ -198,6 +198,6 @@ CREATE TABLE IF NOT EXISTS audit_event (
     actor_id uuid NOT NULL REFERENCES app_user(id),
     kind text NOT NULL,
     subject_id uuid,
-    detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+    detail jsonb NOT NULL DEFAULT '{{}}'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now()
 );
