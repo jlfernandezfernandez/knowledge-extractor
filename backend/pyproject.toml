@@ -1,5 +1,5 @@
 [project]
-name = "knowledge-extractor"
+name = "knowli"
 version = "0.2.0"
 description = "Human-in-the-loop knowledge capture: LangGraph pipeline, pgvector hybrid RAG, A2A + MCP surfaces"
 readme = "../README.md"
@@ -32,16 +32,16 @@ mcp = ["mcp>=1.2"]
 dev = ["pytest>=8.3", "httpx>=0.28"]
 
 [project.scripts]
-ke-api = "ke.api:main"
-ke-a2a = "ke.a2a_server:main"
-ke-mcp = "ke.mcp_server:main"
+knowli-api = "knowli.interfaces.http.main:main"
+knowli-a2a = "knowli.interfaces.a2a.server:main"
+knowli-mcp = "knowli.interfaces.mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["ke"]
+packages = ["knowli"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

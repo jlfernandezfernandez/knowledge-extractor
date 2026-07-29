@@ -1,5 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#0b7364"/>
-  <path d="M10 8v16M10 16l8-8M10 16l8 8" stroke="#fff" stroke-width="2.75"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect width="32" height="32" rx="7" fill="#0d0d0d"/>
+  <text x="16" y="17" font-size="19" text-anchor="middle" dominant-baseline="central">🦉</text>
 </svg>

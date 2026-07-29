@@ -1,144 +1,98 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Toaster } from "sonner";
-import { api, type Progress } from "./api";
-import { AskCommand } from "./AskCommand";
-import { CaptureStep, ConfirmStep, ConflictStep, DoneStep } from "./steps";
-import type { SessionState } from "./types";
-import { Button, Problem, Stepper, Working } from "./ui";
+import { useEffect, useRef, useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { Sidebar } from "@/components/layout/sidebar";
+import { TopBar } from "@/components/layout/top-bar";
+import { AskDialog } from "@/components/ask/ask-dialog";
+import { ReviewFlow } from "@/components/review/review-flow";
+import { useAuthor } from "@/hooks/use-author";
+import { useHotkey } from "@/hooks/use-hotkey";
+import { useKnowledgeBases } from "@/hooks/use-knowledge-bases";
+import { useReview } from "@/hooks/use-review";
 
 /**
- * Advance the deck.
+ * Two panes: what you are feeding and what you have fed it on the left, the
+ * review itself on the right.
  *
- * View Transitions let the browser snapshot the old and new slide itself, so
- * they cross without the outgoing React tree staying mounted and without a
- * layout jump when the two slides are different heights. The direction is
- * written to the document so the CSS can send the slide out the way the next
- * one comes in — enter and exit along the same path.
+ * The stage is the only thing that scrolls, and the only thing that carries a
+ * `view-transition-name` — the rail and the bar stay put while a step slides,
+ * which is what keeps the app from feeling like it reloads on every click.
  */
-function slideTo(direction: "forward" | "back", update: () => void) {
-  document.documentElement.dataset.direction = direction;
-  if (!document.startViewTransition) return update();
-  document.startViewTransition(update);
-}
-
 export default function App() {
-  const { t } = useTranslation();
-  const [session, setSession] = useState<SessionState | null>(null);
-  const [progress, setProgress] = useState<Progress[]>([]);
-  const [busy, setBusy] = useState(false);
+  const review = useReview();
+  const bases = useKnowledgeBases();
+  const [author, setAuthor] = useAuthor();
   const [asking, setAsking] = useState(false);
-  const [error, setError] = useState<unknown>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
 
   // ⌘K, the shortcut every tool this sits next to already uses.
+  useHotkey("k", () => setAsking((open) => !open));
+
+  // A new step starts at the top of itself, not where the last one was read to.
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        setAsking((open) => !open);
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
-
-  // Deep link: /review/<id> resumes a review opened by an agent over MCP or A2A.
-  useEffect(() => {
-    const id = window.location.pathname.match(/^\/review\/([\w-]+)/)?.[1];
-    if (!id) return;
-    api.session(id).then(setSession).catch(setError);
-  }, []);
-
-  const stage = session?.stage ?? "capture";
-
-  const advance = useCallback((next: SessionState) => {
-    slideTo("forward", () => {
-      setSession(next);
-      setProgress([]);
-      setBusy(false);
-    });
     stageRef.current?.scrollTo({ top: 0 });
-  }, []);
+  }, [review.stage]);
 
-  const onProgress = useCallback(
-    (event: Progress) => setProgress((events) => [...events, event]),
-    [],
-  );
-
-  function restart() {
-    slideTo("back", () => {
-      setSession(null);
-      setProgress([]);
-      setError(null);
-    });
-    window.history.replaceState(null, "", "/");
-  }
-
-  const steps = { onProgress, setBusy, busy, onDone: advance, onRestart: restart };
+  const closeMenu = () => setMenuOpen(false);
+  const ask = () => {
+    setAsking(true);
+    closeMenu();
+  };
 
   return (
-    <div className="flex h-dvh flex-col">
-      {/* Translucent chrome with the deck running underneath it, rather than an
-          opaque bar that eats a fixed strip of the slide. */}
-      <header className="chrome z-10 shrink-0 bg-paper/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-3xl items-center gap-4 px-6">
-          <button
-            onClick={restart}
-            className="font-display text-[15px] font-bold tracking-[-0.02em] transition-opacity
-                       duration-[--press] hover:opacity-60"
-          >
-            KE
-          </button>
-          <div className="mx-auto">
-            <Stepper stage={stage} />
-          </div>
-          <Button variant="ghost" onClick={() => setAsking(true)}>
-            {t("app.ask")}
-            <kbd className="hidden rounded border border-line px-1 font-mono text-[10px] sm:block">
-              ⌘K
-            </kbd>
-          </Button>
-        </div>
-      </header>
-
-      {/* The stage. `view-transition-name` marks this subtree as the thing that
-          slides; everything else (the chrome) stays put. */}
-      <main
-        ref={stageRef}
-        className="min-h-0 flex-1 overflow-y-auto"
-        style={{ viewTransitionName: "slide" }}
-      >
-        <div className="mx-auto h-full max-w-3xl px-6">
-          {busy ? (
-            <div className="flex h-full items-center">
-              <Working events={progress} />
-            </div>
-          ) : !session ? (
-            <CaptureStep {...steps} />
-          ) : stage === "confirm" ? (
-            <ConfirmStep state={session} {...steps} />
-          ) : stage === "resolve" ? (
-            <ConflictStep state={session} {...steps} />
-          ) : (
-            <DoneStep state={session} onRestart={restart} />
-          )}
-          <Problem error={error} />
-        </div>
-      </main>
-
-      <AskCommand open={asking} onClose={() => setAsking(false)} />
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          style: {
-            background: "var(--raised)",
-            color: "var(--ink)",
-            border: "1px solid var(--line)",
-            fontFamily: "var(--font-sans)",
-          },
+    <div className="flex h-dvh overflow-hidden">
+      <Sidebar
+        bases={bases}
+        // The rail lists sessions, so it goes stale the moment a review moves.
+        version={review.version}
+        activeSessionId={review.session?.session_id}
+        onOpenSession={(id) => {
+          review.resume(id);
+          closeMenu();
         }}
+        author={author}
+        onAuthorChange={setAuthor}
+        onNewCapture={() => {
+          review.reset();
+          closeMenu();
+        }}
+        onAsk={ask}
+        open={menuOpen}
+        onClose={closeMenu}
       />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar
+          stage={review.stage}
+          canGoBack={review.canGoBack}
+          onBack={review.back}
+          onAsk={ask}
+          onOpenMenu={() => setMenuOpen(true)}
+        />
+        <main
+          ref={stageRef}
+          className="min-h-0 flex-1 overflow-y-auto"
+          style={{ viewTransitionName: "step" }}
+        >
+          <div className="mx-auto h-full max-w-3xl px-4 sm:px-6">
+            <ReviewFlow
+              review={review}
+              author={author}
+              knowledgeBase={bases.slug}
+              // A commit changes the claim count the picker shows.
+              onCommitted={bases.refresh}
+            />
+          </div>
+        </main>
+      </div>
+
+      <AskDialog
+        open={asking}
+        onClose={() => setAsking(false)}
+        knowledgeBase={bases.slug}
+        knowledgeBaseName={bases.current?.name ?? ""}
+      />
+      <Toaster position="bottom-right" />
     </div>
   );
 }

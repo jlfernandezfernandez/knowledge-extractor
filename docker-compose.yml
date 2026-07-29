@@ -2,15 +2,15 @@ services:
   db:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: ke
-      POSTGRES_PASSWORD: ke
-      POSTGRES_DB: ke
+      POSTGRES_USER: knowli
+      POSTGRES_PASSWORD: knowli
+      POSTGRES_DB: knowli
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ke"]
+      test: ["CMD-SHELL", "pg_isready -U knowli"]
       interval: 3s
       timeout: 3s
       retries: 20

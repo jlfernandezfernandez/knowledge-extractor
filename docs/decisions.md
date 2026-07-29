@@ -32,6 +32,27 @@ general, far heavier than this needs, and not LLM-shaped.
 
 ---
 
+### Layered backend, not flat modules
+
+**Chosen.** `domain` / `application` / `infrastructure` / `interfaces`, with the
+dependencies pointing inwards and `domain/ports.py` naming what the edges have
+to satisfy. It buys navigability — where a query lives stops being a matter of
+memory — and testable seams: `plan()` is a pure function in `domain/policy.py`,
+so `pytest` needs neither a database nor a model.
+
+**The honest accounting:** at ~1,500 lines this is a choice, not a necessity.
+The flat modules it replaced worked fine. Every port has exactly one
+implementation, so the indirection buys optionality nobody has spent yet, and
+following a request costs one more hop than it did. It was adopted because this
+codebase exists to be read and argued with, and because the shape is what
+someone joining would expect to find.
+
+**Rejected:** staying flat until something actually hurt — the cheaper option,
+and a defensible one. **Also rejected:** a port per third-party call plus a
+container to wire them, which is ceremony until this is ten times the size.
+
+---
+
 ### Postgres + pgvector, not a dedicated vector database
 
 **Chosen.** One database for vectors, lexical index, supersede history and
@@ -43,6 +64,67 @@ relational half — the history and the checkpoints. Team knowledge is thousands
 of claims, not millions.
 
 **Revisit when:** > ~1M claims, or filtered search gets slow.
+
+---
+
+### A knowledge base above claims
+
+**Chosen.** `workspace` → `knowledge_base` → claims, with both retrieval **and
+conflict detection** scoped to one knowledge base. A default pair is seeded on
+startup, so a solo local user never meets the concept.
+
+**The reason is conflict detection, not retrieval.** Scoping retrieval is a
+quality and cost improvement you could live without. Scoping comparison is not:
+two support teams write claims of the same shape about different departments,
+the embedding puts them next to each other because they *are* similar text, and
+the model classifies them as contradictory because nothing in the text says they
+are not. The human is then asked to break a tie between two facts that are both
+true. Measured with the identical contradicting statement: zero conflicts across
+two knowledge bases, a genuine `conflict` verdict inside one — at cosine
+distance 0.289 either way. The scope decided it, not the score.
+
+**Rejected:** scoping by the existing `tags` column. Tags are per-claim data
+that can be absent, misspelled or wrong, and a comparison boundary that a bad
+tag can silently widen is not a boundary. **Also rejected:** a database per
+team, which multiplies the checkpointer and the operational surface for
+something a foreign key does.
+
+**The honest accounting:** this was introduced *before* it was needed. Locally
+there is one subject and one knowledge base, so today it is a foreign key that
+is always the same value. It was built early anyway because a comparison scope
+is a data-model decision — retrofitting one over claims already written, and
+over conflicts already resolved against the wrong neighbours, is the expensive
+kind of change. The migration is in-place and idempotent (`ADD COLUMN IF NOT
+EXISTS`, backfill, `SET NOT NULL`), so existing installs keep their rows.
+
+**Deliberately not built: users and authentication.** Only the tables and the
+scoping column exist. A knowledge base is therefore a *subject* boundary and not
+a permission boundary — nothing stops a caller naming any slug, and the ports
+say so out loud rather than implying otherwise. Adding people later is a new
+table plus a join instead of a migration over every claim.
+
+---
+
+### Two store ports, not one
+
+**Chosen.** `KnowledgeRepository` for claims, `Catalog` for knowledge bases and
+the review listing. The claim methods take a `KnowledgeBase` first, because
+every vector store takes it first — a handle for them, a `WHERE` clause here —
+and a `KnowledgeBase` rather than an id, because pgvector needs `id` and Qdrant
+would need `slug`.
+
+**Rejected:** five more methods on the existing port. The two halves are not
+swapped together: move the claims to Qdrant and the catalog stays in Postgres,
+because a vector store has no opinion about which collections a product offers
+and no table of half-finished human reviews. The split is what makes "shaped so
+Qdrant could be added" a statement rather than a hope.
+
+**The honest accounting, again:** both protocols are implemented in the same
+file, and **no second adapter was built**. Only pgvector ships. A Qdrant adapter
+would have to implement `KnowledgeRepository` and nothing else — the work is
+listed in [`architecture.md`](architecture.md#what-a-qdrant-adapter-would-actually-have-to-write)
+— but that is an estimate, not tested pluggability, and it should not be read as
+one.
 
 ---
 
@@ -70,7 +152,11 @@ die.
 
 ### React + Vite SPA, not Next.js
 
-**Chosen.** Vite + React 19 + TypeScript + Tailwind v4.
+**Chosen.** Vite + React 19 + TypeScript + Tailwind v4, with shadcn/ui for the
+components — which since 3 July 2026 generates on **Base UI** rather than Radix.
+shadcn/ui is not a dependency: the primitives are copied into the repo and
+owned, which is the only way a design this specific survives contact with a
+component library.
 
 **Rejected:** Next.js. There is nothing to server-render — it is an authenticated
 internal tool behind a Python API — so Next would add a second server, a second
@@ -93,8 +179,8 @@ was ceremony.
 write.
 
 **Rejected:** an "agent write" path with an audit log. Auditable garbage is
-still garbage, and the moment agents can write unattended, the knowledge base
-becomes the thing this project exists to prevent.
+still garbage, and the moment agents can write unattended, the store becomes the
+thing this project exists to prevent.
 
 ---
 
@@ -149,7 +235,7 @@ argues for. Overruled deliberately: `react-i18next` is what these codebases
 actually use, and the point of this project includes being able to work in one.
 
 **Not translated:** claims themselves. The model is told to write in the
-language the person spoke, and the knowledge base stores whatever they said.
+language the person spoke, and the store keeps whatever they said.
 Retrieval is cross-language anyway — the embeddings match "holiday policy"
 against a Spanish claim (see [`concepts.md`](concepts.md#2-embeddings)).
 
@@ -203,7 +289,9 @@ Duration follows **frequency**, not importance:
 on `requestAnimationFrame` on the main thread and drop frames exactly when the
 app is busy — which here is while an LLM response is being parsed. CSS
 animations run off the main thread. Springs would earn their place for
-interruptible gestures; there are none in this UI.
+interruptible gestures; there are none in this UI. Adopting shadcn/ui did not
+quietly reverse this: Base UI animates from data attributes and CSS keyframes,
+so the rule still holds after the rebuild.
 
 **Rejected:** animating the ⌘K palette. It is keyboard-initiated and opened
 constantly; an entrance animation there stops reading as polish and starts
@@ -314,9 +402,9 @@ Mapped onto this project's three actionable verdicts:
 | `duplicate` | keep stored · use yours · combine | **keep stored** | Two copies of one fact dilute retrieval and inflate whatever the generator sees. Keep-both is **not offered** here either. |
 | `refines` | keep both · combine · use yours | **keep both** | Complementary claims are the case where both *should* stand. Superseding one throws away information that was worth keeping. |
 
-Enforced in `plan()`, not just hidden in the UI: an agent that posts
-`keep_both` for a `conflict` gets a `ValueError`, because a rule that only
-exists in the frontend is not a rule.
+Enforced in `plan()` in `domain/policy.py`, not just hidden in the UI: an agent
+that posts `keep_both` for a `conflict` gets a `ValueError`, because a rule that
+only exists in the frontend is not a rule.
 
 **Every overlap arrives pre-answered** with its verdict's default, so the common
 path is read-and-continue instead of click-every-card, and the action bar shows

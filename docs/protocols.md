@@ -15,7 +15,7 @@ system speaks both.
    autonomous     └──────────┬──────────┘
    agent                     │  A2A  (peer ↔ peer: discover, delegate, negotiate)
                   ┌──────────▼──────────┐
-                  │ Knowledge Extractor │
+                  │       Knowli        │
                   └──────────┬──────────┘
                              │  MCP  (model ↔ tools & data: "here is a capability")
                   ┌──────────▼──────────┐
@@ -41,17 +41,32 @@ system speaks both.
 
 ## What this project exposes
 
-Both surfaces offer the same three capabilities, and both enforce the same rule:
-**an agent may read freely, but may not write.** `submit_knowledge` returns a
-review URL. A human still has to confirm and resolve. The gate is the product;
-it does not get an exemption for machine callers.
+Both surfaces enforce the same rule: **an agent may read freely, but may not
+write.** `submit_knowledge` returns a review URL. A human still has to confirm
+and resolve. The gate is the product; it does not get an exemption for machine
+callers.
 
-| Skill / tool | Reads | Writes |
-|---|---|---|
-| `search_knowledge` | hybrid retrieval over live claims | — |
-| `ask_knowledge` | cited answer grounded in claims | — |
-| `claim_history` | the supersede chain of a claim | — |
-| `submit_knowledge` | — | **no** — opens a human review, returns its URL |
+| Skill / tool | Reads | Writes | Where |
+|---|---|---|---|
+| `list_knowledge_bases` | the knowledge bases here, with claim counts | — | both |
+| `search_knowledge` | hybrid retrieval over live claims | — | both |
+| `ask_knowledge` | cited answer grounded in claims | — | both |
+| `claim_history` | the supersede chain of a claim | — | MCP only |
+| `submit_knowledge` | — | **no** — opens a human review, returns its URL | both |
+
+`claim_history` is MCP-only on purpose. Following a supersede chain is what a
+model does mid-task when an answer looks stale — the vertical link. A peer agent
+consulting this knowledge base wants the current answer, not our revision
+history, so it is not on the Agent Card.
+
+**Every skill that touches claims takes an optional knowledge base**, as a slug,
+defaulting to the configured one. That is why `list_knowledge_bases` is there at
+all: a peer should be able to name a scope instead of guessing at it. An unknown
+slug is an error whose message lists the ones that exist — never a silent
+fallback to the default, which would let an agent file a claim into the wrong
+subject and then have it compared against that subject's claims. A2A carries it
+in the message `metadata` alongside the skill; MCP takes it as a tool argument;
+`claim_history` takes none, because a claim id already names its scope.
 
 ### MCP
 
@@ -60,7 +75,7 @@ cd backend && uv pip install -e '.[mcp]'
 ```
 
 ```json
-{ "mcpServers": { "knowledge": { "command": "ke-mcp" } } }
+{ "mcpServers": { "knowli": { "command": "knowli-mcp" } } }
 ```
 
 Runs over stdio, so any MCP client picks it up. This is the realistic
@@ -70,7 +85,7 @@ processes".
 ### A2A
 
 ```bash
-cd backend && uv pip install -e '.[a2a]' && ke-a2a
+cd backend && uv pip install -e '.[a2a]' && knowli-a2a
 # agent card: http://127.0.0.1:9999/.well-known/agent-card.json
 ```
 
@@ -86,10 +101,11 @@ curl -s -X POST localhost:9999/ \
   -d '{"jsonrpc":"2.0","id":"1","method":"SendMessage","params":{
        "message":{"messageId":"u1","role":"ROLE_USER",
                   "parts":[{"text":"when do we deploy?"}]},
-       "metadata":{"skill":"ask_knowledge"}}}'
+       "metadata":{"skill":"ask_knowledge","knowledge_base":"kitchen-returns"}}}'
 ```
 
-Skill selection rides on message `metadata`; the default is search.
+Skill selection rides on message `metadata`, and so does the knowledge base; the
+defaults are search and the configured knowledge base.
 
 ---
 
@@ -128,7 +144,8 @@ Google one.)
 **Where it fits this project, and a good next issue:** ship a `SKILL.md` that
 teaches an agent *how to interview a person well* — the questions that get tacit
 knowledge out of someone — and let the extraction step load it. The prompt
-becomes a versioned artifact instead of a string in `graph.py`.
+becomes a versioned artifact instead of a constant in
+`infrastructure/llm/prompts.py`.
 
 ### `llms.txt`
 

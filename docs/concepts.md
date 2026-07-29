@@ -106,8 +106,8 @@ query "cuando se sube a produccion"  →  Despliegues first (semantic only)
 query "holiday policy"               →  Vacaciones first (semantic, cross-language)
 ```
 
-The SQL is in `backend/ke/store.py` — two CTEs, one `LEFT JOIN`, no extra
-service.
+The SQL is in `backend/knowli/infrastructure/postgres/repository.py` — two CTEs,
+one `LEFT JOIN`, no extra service.
 
 > **Say it like this:** "RRF fuses rankings, not scores, so you never have to
 > calibrate a cosine distance against a BM25 score. That is the whole trick."
@@ -122,7 +122,74 @@ and the reason.
 
 ---
 
-## 4. Human-in-the-loop, and why this is a graph
+## 4. The knowledge base: what a claim is compared against
+
+Everything above assumes one question: *retrieve from where?* The naive answer
+is "everything stored", and it holds for exactly as long as everything stored is
+about one subject.
+
+A **knowledge base** is the container claims live in. It is what a vector store
+calls a **collection** (Qdrant, Chroma) or a **namespace** (Pinecone), and what
+pgvector implements as a scoping column plus the indexes that support it. Above
+it sits a **workspace**, so that a second tenant later is a `WHERE` clause
+rather than a migration. One of each is seeded on startup —
+`DEFAULT_WORKSPACE=default`, `DEFAULT_KNOWLEDGE_BASE=personal` — so a solo local
+user never meets the concept.
+
+**Both retrieval and conflict detection scope to one knowledge base**, and the
+second one is the reason the container exists. Retrieval scoping is a quality
+and a cost improvement; you would survive without it. Conflict detection
+scoping is the difference between the product working and not working.
+
+Consider a support organisation. One team handles kitchen returns and writes
+*"a return has to be approved by the team lead first"*; another handles sofa
+deliveries and writes *"a return does not need approval under €50"*. Put both in
+one pile and the detector compares them, because it compares whatever is
+*semantically near* — and they are: same vocabulary, same shape, same domain of
+discourse. The model reading the pair cannot tell from the text alone that these
+are different departments, so it does the reasonable thing and calls them a
+contradiction. A human is then asked to break a tie between two facts that are
+both simply true, and every available answer is wrong.
+
+Measured on this project's default embedding model, with the *identical*
+contradicting statement offered twice:
+
+| Setup | Distance to the stored claim | Result |
+|---|---|---|
+| Stored claim and new claim in **different** knowledge bases | 0.289 | **zero conflicts** — the neighbour is not visible |
+| Stored claim and new claim in the **same** knowledge base | 0.289 | a genuine `conflict` verdict |
+
+The distance is the same either way, which is the point: nothing about the
+embedding changed and nothing about the threshold changed. The scope decided
+whether the two claims were ever in the same conversation.
+
+> **Say it like this:** "Conflict detection is only meaningful inside a scope.
+> Two teams can hold contradictory-looking facts that are both true, and the
+> only thing that can tell them apart is a boundary you declare — not a
+> similarity score."
+
+**What this is not.** There are no users and no authentication, so a knowledge
+base is a *subject* boundary, not a permission boundary. Nothing stops a caller
+naming any slug. The tables were added early anyway, because scoping a
+comparison is a data-model decision and retrofitting one over claims already
+written is the expensive kind of change.
+
+Two details fall out of it and are worth knowing:
+
+- **An unknown slug is an error everywhere**, never a silent fallback to the
+  default — a 404 over HTTP, the same message handed straight to the caller over
+  MCP and A2A. An error costs a caller one retry; a fallback costs someone a
+  wrong answer months later with no way to see where it came from. The message
+  lists the slugs that do exist, because the caller is often an agent that has
+  to pick again.
+- **The slug is derived from the name, and folding is the whole job.** "Kitchen
+  Returns", "kitchen returns" and "Kitchen  Returns!" have to collapse to one
+  knowledge base, accents included, or they quietly become three that look
+  identical in a sidebar.
+
+---
+
+## 5. Human-in-the-loop, and why this is a graph
 
 The design claim of this project: **the model proposes, the human disposes.**
 That means the workflow has to physically stop twice, and stay stopped —
@@ -154,6 +221,12 @@ Consequences worth naming out loud:
 - The `clarify` edge is possible *because* it is a graph: answering the model's
   open questions routes **back** to extraction with extra context, instead of
   moving forward. A chain would have to be re-run from scratch.
+- **The review can also go backwards.** `POST /api/sessions/{id}/back` replays
+  the thread from the checkpoint before the current gate, so the resolve gate
+  becomes the confirm gate again with the claims exactly as they were. Nothing
+  extra had to be stored to allow it — every earlier state is already a row.
+  This is the checkpointer earning its keep a second time: once for pausing,
+  once for rewinding.
 
 > **Say it like this:** "The human gates are `interrupt()` calls. That makes the
 > pause durable — the session is a checkpoint in Postgres, not a connection
@@ -174,7 +247,7 @@ up when you actually build it:
 
 ---
 
-## 5. Structured output
+## 6. Structured output
 
 Asking a model for JSON and parsing the reply is a losing game: fenced blocks,
 preambles, trailing prose, single quotes.
@@ -183,17 +256,19 @@ preambles, trailing prose, single quotes.
 **tool/function definition** and lets the provider's constrained decoding
 guarantee the shape. You get a typed object, not a string.
 
-The same Pydantic models are the FastAPI response models, so the schema is
-declared **once** and is simultaneously: the model's contract, the API's
-validation, the OpenAPI spec, and the source of truth the TypeScript types
-mirror.
+The claim and conflict types live in `domain/`, and both edges are built on
+them: `infrastructure/llm/schemas.py` wraps them in what the model must return,
+`interfaces/http/schemas.py` in what the API exchanges. The vocabulary is
+therefore declared **once** and is simultaneously the model's contract, the
+API's validation, the OpenAPI spec, and the source of truth the TypeScript
+types mirror — while each edge is still free to have a shape of its own.
 
 > **Say it like this:** "One Pydantic model is the LLM contract, the API
 > contract and the docs. If it drifts, everything fails loudly in one place."
 
 ---
 
-## 6. Versioned knowledge
+## 7. Versioned knowledge
 
 Nothing is deleted. A claim that loses a conflict keeps its row and gets a
 `superseded_by` pointer to the claim that replaced it.
@@ -207,12 +282,12 @@ hostile, so the interface shows stored and incoming side by side and dims the
 losing one instead of asking a non-engineer to read merge syntax. Steal the data
 model, not the ergonomics.
 
-> **Say it like this:** "Knowledge bases are append-only in our model. You can
-> always ask what we used to believe and when it changed."
+> **Say it like this:** "The store is append-only. You can always ask what we
+> used to believe and when it changed."
 
 ---
 
-## 7. Where the tokens actually go
+## 8. Where the tokens actually go
 
 Per capture, roughly:
 
@@ -222,10 +297,13 @@ Per capture, roughly:
 | 0–N | one comparison call per claim that has near neighbours |
 | 0 | committing — pure database work, no model involved |
 
-The conflict step is the expensive one, and it is bounded twice: by
-`CONFLICT_TOP_K` (how many neighbours) and `CONFLICT_MAX_DISTANCE` (a claim with
-no close neighbours costs *zero* LLM calls). That distance cutoff is a cost
-control as much as a quality one.
+The conflict step is the expensive one, and it is bounded three times: by the
+knowledge base (nothing outside it is a candidate at all), by `CONFLICT_TOP_K`
+(how many neighbours) and by `CONFLICT_MAX_DISTANCE` (a claim with no close
+neighbours costs *zero* LLM calls). The distance cutoff is a cost control as
+much as a quality one, and so, incidentally, is the scope: a support
+organisation with twelve knowledge bases is not paying for twelve queues' worth
+of near-misses on every capture.
 
 ---
 

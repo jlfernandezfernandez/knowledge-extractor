@@ -1,216 +1,285 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Dark follows the system, and only the system. There is no theme toggle: the
+   app is one column of text and the OS already knows the answer.
+   shadcn's components style themselves with `dark:` utilities, so the variant
+   is repointed at the media query to match where the tokens below switch. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 /* ─────────────────────────────────────────────────────────────────────────
    Colour
 
-   Cool paper and ink, with verdigris as the single identity colour — the
-   patina of something that has been accumulating for a while, which is what a
-   knowledge base is. Clay is reserved strictly for conflict state, so seeing
-   it anywhere always means a human has to decide something.
+   Greyscale, on purpose and to the letter. Every surface, border and control
+   in this app is neutral, which leaves exactly one place for colour to mean
+   something: a claim that contradicts what is already stored. Red appears on
+   that badge and nowhere else in the product, so seeing it always means a
+   person has to decide something.
 
-   Dark mode is built, not inverted: surfaces get *lighter* as they come
-   forward, so depth reads without borders you have to count.
+   Light is white paper with a slightly recessed rail. Dark is not an
+   inversion: surfaces come *forward* as they get lighter, which is why the
+   composer sits at #303030 on a #212121 page.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --paper: #f4f6f8;
-  --surface: #ffffff;
-  --raised: #ffffff;
-  --sunken: #e9edf1;
-  --ink: #0f1319;
-  --muted: #5d6773;
-  --faint: #8b95a3;
-  --line: #dde3e9;
-  --line-strong: #c5cfd9;
-  --verdigris: #0b7364;
-  --verdigris-ink: #075246;
-  --verdigris-soft: #dcefeb;
-  --clay: #a83c12;
-  --clay-soft: #fbe9e0;
-  --stored: #f5eef0;
-  --incoming: #e4f1ed;
-  --shadow: 0 1px 2px rgb(15 19 25 / 0.04), 0 10px 30px -14px rgb(15 19 25 / 0.14);
-  --shadow-lift: 0 2px 4px rgb(15 19 25 / 0.05), 0 24px 60px -20px rgb(15 19 25 / 0.28);
+  --background: #ffffff;
+  --foreground: #0d0d0d;
+
+  --card: #ffffff;
+  --card-foreground: #0d0d0d;
+  --popover: #ffffff;
+  --popover-foreground: #0d0d0d;
+
+  --primary: #0d0d0d;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f4;
+  --secondary-foreground: #0d0d0d;
+  --muted: #f4f4f4;
+  --muted-foreground: #5d5d5d;
+  --accent: #ececec;
+  --accent-foreground: #0d0d0d;
+  --destructive: #c93532;
+  --destructive-foreground: #ffffff;
+
+  --border: #e5e5e5;
+  --input: #e0e0e0;
+  --ring: #0d0d0d;
+
+  --sidebar: #f9f9f9;
+  --sidebar-foreground: #0d0d0d;
+  --sidebar-primary: #0d0d0d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ececec;
+  --sidebar-accent-foreground: #0d0d0d;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #0d0d0d;
+
+  /* The composer is the one surface that lifts off the page. */
+  --composer: #ffffff;
+  --shadow-composer: 0 2px 6px rgb(0 0 0 / 0.04), 0 12px 32px -12px rgb(0 0 0 / 0.14);
+  --shadow-float: 0 4px 12px rgb(0 0 0 / 0.06), 0 24px 64px -20px rgb(0 0 0 / 0.24);
+
+  --radius: 0.875rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0a0d12;
-    --surface: #141920;
-    --raised: #1b212a;
-    --sunken: #10151b;
-    --ink: #e9edf2;
-    --muted: #9aa5b3;
-    --faint: #6b7686;
-    --line: #232b35;
-    --line-strong: #364150;
-    --verdigris: #45c9b0;
-    --verdigris-ink: #8fe8d5;
-    --verdigris-soft: #0e2f2a;
-    --clay: #ef8a5c;
-    --clay-soft: #2e1710;
-    --stored: #241a1f;
-    --incoming: #10261f;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -14px rgb(0 0 0 / 0.7);
-    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 24px 60px -20px rgb(0 0 0 / 0.85);
+    --background: #212121;
+    --foreground: #ececec;
+
+    --card: #303030;
+    --card-foreground: #ececec;
+    --popover: #2f2f2f;
+    --popover-foreground: #ececec;
+
+    --primary: #ffffff;
+    --primary-foreground: #0d0d0d;
+    --secondary: #303030;
+    --secondary-foreground: #ececec;
+    --muted: #303030;
+    --muted-foreground: #b0b0b0;
+    --accent: #3a3a3a;
+    --accent-foreground: #ececec;
+    --destructive: #f0837c;
+    --destructive-foreground: #1a0f0f;
+
+    --border: oklch(1 0 0 / 11%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: #8f8f8f;
+
+    --sidebar: #181818;
+    --sidebar-foreground: #ececec;
+    --sidebar-primary: #ffffff;
+    --sidebar-primary-foreground: #0d0d0d;
+    --sidebar-accent: #2f2f2f;
+    --sidebar-accent-foreground: #ececec;
+    --sidebar-border: oklch(1 0 0 / 9%);
+    --sidebar-ring: #8f8f8f;
+
+    --composer: #303030;
+    --shadow-composer: 0 2px 6px rgb(0 0 0 / 0.3), 0 12px 32px -12px rgb(0 0 0 / 0.5);
+    --shadow-float: 0 4px 12px rgb(0 0 0 / 0.4), 0 24px 64px -20px rgb(0 0 0 / 0.7);
   }
 }
 
 @theme inline {
-  --color-paper: var(--paper);
-  --color-surface: var(--surface);
-  --color-raised: var(--raised);
-  --color-sunken: var(--sunken);
-  --color-ink: var(--ink);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
-  --color-faint: var(--faint);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-verdigris: var(--verdigris);
-  --color-verdigris-ink: var(--verdigris-ink);
-  --color-verdigris-soft: var(--verdigris-soft);
-  --color-clay: var(--clay);
-  --color-clay-soft: var(--clay-soft);
-  --color-stored: var(--stored);
-  --color-incoming: var(--incoming);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-composer: var(--composer);
 
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow-composer: var(--shadow-composer);
+  --shadow-float: var(--shadow-float);
 
-  --shadow-card: var(--shadow);
-  --shadow-lifted: var(--shadow-lift);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* No webfont. On macOS `ui-sans-serif` is SF Pro and on Windows it is Segoe,
+     which is the stack ChatGPT itself falls back to — so the typeface is
+     right, costs nothing to load, and cannot flash. */
+  --font-sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
    Motion
 
-   Stronger curves than the built-in ones, which are too weak to read as
-   intentional. `ease-in` is absent on purpose: it delays the first moment of
-   movement, which is exactly when the user is looking.
-
-   Duration follows frequency. Button press 160ms; a slide change, seen once
-   per step, 320ms. The ⌘K palette has none at all — it is keyboard-initiated
-   and opened constantly, where an entrance animation reads as lag.
+   Duration follows frequency. A button press is felt on every interaction, so
+   it is fast (150ms); a step change is seen once per step, so it can afford
+   320ms. The ⌘K palette has no entrance movement at all — it is opened dozens
+   of times a day, and at that frequency an animation reads as lag, not polish.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --press: 160ms;
-  --slide: 320ms;
+  --press: 150ms;
+  --step: 320ms;
   --state: 200ms;
 }
 
-html {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: 100%;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+@layer base {
+  * {
+    @apply border-border outline-ring/40;
+  }
+  html {
+    @apply font-sans;
+    background: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
 
-::selection {
-  background: var(--verdigris-soft);
-  color: var(--verdigris-ink);
-}
+/* ── Step transitions ─────────────────────────────────────────────────────
+   The review is a sequence, so moving through it is a sequence: the next step
+   arrives from the right and the current one leaves to the left, and going
+   back mirrors it exactly. Enter and exit travel the same path, which is what
+   makes "back" feel like undoing rather than like a new screen.
 
-:focus-visible {
-  outline: 2px solid var(--verdigris);
-  outline-offset: 3px;
-  border-radius: 8px;
-}
-
-/* ── Slide transitions ────────────────────────────────────────────────────
-   The deck moves. Advancing brings the next slide in from the right and
-   takes the current one out to the left; going back mirrors it exactly —
-   enter and exit along the same path, so the spatial relationship holds.
-
-   This uses the View Transitions API rather than a hand-rolled two-panel
-   carousel: the browser snapshots both states itself, so slides of different
-   heights cross without a layout jump and without keeping the outgoing React
-   tree mounted. Browsers without it simply get an instant swap.
+   View Transitions rather than a hand-rolled carousel: the browser snapshots
+   both states itself, so steps of different heights cross without a layout
+   jump and without keeping the outgoing React tree mounted. Browsers without
+   the API get an instant swap, which is a fine outcome.
    ──────────────────────────────────────────────────────────────────────── */
-@keyframes slide-from-right {
+@keyframes step-from-right {
   from {
     opacity: 0;
-    transform: translateX(28px);
+    transform: translateX(24px);
   }
 }
-@keyframes slide-to-left {
+@keyframes step-to-left {
   to {
     opacity: 0;
-    transform: translateX(-28px);
+    transform: translateX(-24px);
   }
 }
-@keyframes slide-from-left {
+@keyframes step-from-left {
   from {
     opacity: 0;
-    transform: translateX(-28px);
+    transform: translateX(-24px);
   }
 }
-@keyframes slide-to-right {
+@keyframes step-to-right {
   to {
     opacity: 0;
-    transform: translateX(28px);
+    transform: translateX(24px);
   }
 }
 
-::view-transition-old(slide),
-::view-transition-new(slide) {
-  /* Both halves are absolutely positioned by the browser; keep them stacked
-     on the same origin so the cross does not jump. */
-  animation-duration: var(--slide);
+::view-transition-old(step),
+::view-transition-new(step) {
+  animation-duration: var(--step);
   animation-timing-function: var(--ease-out);
   animation-fill-mode: both;
   mix-blend-mode: normal;
 }
 
-html[data-direction="forward"]::view-transition-old(slide) {
-  animation-name: slide-to-left;
-  animation-duration: 180ms; /* leaving is faster than arriving */
+html[data-direction="forward"]::view-transition-old(step) {
+  animation-name: step-to-left;
+  animation-duration: 170ms; /* leaving is faster than arriving */
 }
-html[data-direction="forward"]::view-transition-new(slide) {
-  animation-name: slide-from-right;
+html[data-direction="forward"]::view-transition-new(step) {
+  animation-name: step-from-right;
 }
-html[data-direction="back"]::view-transition-old(slide) {
-  animation-name: slide-to-right;
-  animation-duration: 180ms;
+html[data-direction="back"]::view-transition-old(step) {
+  animation-name: step-to-right;
+  animation-duration: 170ms;
 }
-html[data-direction="back"]::view-transition-new(slide) {
-  animation-name: slide-from-left;
+html[data-direction="back"]::view-transition-new(step) {
+  animation-name: step-from-left;
 }
 
 /* Entering, not appearing from nothing. */
 @keyframes enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
 }
 .enter {
-  animation: enter var(--slide) var(--ease-out) both;
+  animation: enter var(--step) var(--ease-out) both;
 }
 
 /* Stagger is decorative and never gates interaction. */
 .stagger > * {
-  animation: enter var(--slide) var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 45ms);
+  animation: enter var(--step) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
 }
 
 @keyframes breathe {
   50% {
-    opacity: 0.3;
+    opacity: 0.35;
   }
 }
+.breathe {
+  animation: breathe 1.4s ease-in-out infinite;
+}
 
-/* The merge lane opens with grid rows: 0fr → 1fr animates without measuring
-   a height in JavaScript. */
+/* The merge lane opens with grid rows: 0fr → 1fr animates without measuring a
+   height in JavaScript. */
 .reveal {
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
   transition:
-    grid-template-rows var(--slide) var(--ease-out),
+    grid-template-rows var(--step) var(--ease-out),
     opacity var(--state) var(--ease-out);
 }
 .reveal[data-open="true"] {
@@ -232,22 +301,22 @@ html[data-direction="back"]::view-transition-new(slide) {
    that carry meaning stay, the travel goes.
    ──────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  @keyframes slide-from-right {
+  @keyframes step-from-right {
     from {
       opacity: 0;
     }
   }
-  @keyframes slide-from-left {
+  @keyframes step-from-left {
     from {
       opacity: 0;
     }
   }
-  @keyframes slide-to-left {
+  @keyframes step-to-left {
     to {
       opacity: 0;
     }
   }
-  @keyframes slide-to-right {
+  @keyframes step-to-right {
     to {
       opacity: 0;
     }
@@ -264,12 +333,5 @@ html[data-direction="back"]::view-transition-new(slide) {
   *::before,
   *::after {
     transition-duration: 120ms !important;
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .chrome {
-    background: var(--paper);
-    backdrop-filter: none;
   }
 }
