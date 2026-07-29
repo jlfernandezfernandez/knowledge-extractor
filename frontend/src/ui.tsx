@@ -45,7 +45,7 @@ const STEPS: { id: Stage | "capture"; key: string }[] = [
 ];
 // `detecting` sits between review and decide: it is a loading state, not a
 // slide, so it advances the stepper without adding a dot of its own.
-export const STEP_ORDER: (Stage | "capture")[] = [
+const STEP_ORDER: (Stage | "capture")[] = [
   "capture",
   "confirm",
   "detecting",
