@@ -15,6 +15,7 @@ can be imported on a machine with neither installed.
 from __future__ import annotations
 
 import logging
+from importlib.util import find_spec
 import urllib.request
 from pathlib import Path
 
@@ -41,13 +42,20 @@ def _vad_model() -> Path:
 
 
 def available() -> bool:
-    return _resolve() is not None
+    resolved = _resolve()
+    if resolved is None:
+        return False
+    provider, _ = resolved
+    dependency = "faster_whisper" if provider == "whisper" else "sherpa_onnx"
+    return find_spec(dependency) is not None
 
 
 def _resolve() -> tuple[str, Path] | None:
     """Which backend can actually run, given what is installed and on disk."""
     if config.SPEECH_PROVIDER == "whisper":
         return ("whisper", Path())
+    if config.SPEECH_PROVIDER != "parakeet" or not config.SPEECH_MODEL_DIR:
+        return None
     model_dir = Path(config.SPEECH_MODEL_DIR).expanduser()
     if (model_dir / "encoder.int8.onnx").exists():
         return ("parakeet", model_dir)

@@ -13,19 +13,21 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 COOKIE = "knowli_session"
 
 
-def get_auth_service() -> AuthService:
-    return wiring.auth_service
+def get_auth_service(request: Request) -> AuthService:
+    return wiring.services(request.app).auth
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
-def require_user(request: Request, service: AuthServiceDep) -> User:
+def require_user(request: Request) -> User:
     token = request.cookies.get(COOKIE)
     if token is None:
         from ...application.auth import SessionExpired
 
         raise SessionExpired()
+    override = request.app.dependency_overrides.get(get_auth_service)
+    service = override() if override is not None else get_auth_service(request)
     return service.authenticate(token)
 
 

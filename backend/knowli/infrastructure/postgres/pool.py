@@ -11,10 +11,24 @@ _pool: ConnectionPool | None = None
 _checkpoint_pool: ConnectionPool | None = None
 
 
+def create_pool() -> ConnectionPool:
+    """Create the web application's main pool without making it module state."""
+    return ConnectionPool(config.DATABASE_URL, configure=register_vector, open=True)
+
+
+def create_checkpoint_pool() -> ConnectionPool:
+    """Create the separate autocommit pool required by LangGraph."""
+    return ConnectionPool(
+        config.DATABASE_URL,
+        kwargs={"autocommit": True, "prepare_threshold": 0},
+        open=True,
+    )
+
+
 def pool() -> ConnectionPool:
     global _pool
     if _pool is None:
-        _pool = ConnectionPool(config.DATABASE_URL, configure=register_vector, open=True)
+        _pool = create_pool()
     return _pool
 
 
@@ -27,11 +41,7 @@ def checkpoint_pool() -> ConnectionPool:
     """
     global _checkpoint_pool
     if _checkpoint_pool is None:
-        _checkpoint_pool = ConnectionPool(
-            config.DATABASE_URL,
-            kwargs={"autocommit": True, "prepare_threshold": 0},
-            open=True,
-        )
+        _checkpoint_pool = create_checkpoint_pool()
     return _checkpoint_pool
 
 

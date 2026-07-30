@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from ... import wiring
 from ...application.ask import AskService
@@ -12,8 +12,8 @@ from .schemas import AskRequest, AskResponse
 router = APIRouter(prefix="/api", tags=["ask"])
 
 
-def get_ask_service() -> AskService:
-    return wiring.ask_service()
+def get_ask_service(request: Request, _: CurrentUserDep) -> AskService:
+    return wiring.services(request.app).ask
 
 
 AskServiceDep = Annotated[AskService, Depends(get_ask_service)]

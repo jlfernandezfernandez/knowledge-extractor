@@ -20,6 +20,12 @@ class OpenAIModel:
             temperature=0,
         )
 
+    def close(self) -> None:
+        """Release the OpenAI HTTP client when the application stops."""
+        close = getattr(getattr(self._chat, "root_client", None), "close", None)
+        if callable(close):
+            close()
+
     def extract_claims(self, raw_text: str) -> list[ClaimDraft]:
         result = self._chat.with_structured_output(Extraction).invoke(
             [("system", EXTRACT_SYSTEM), ("human", raw_text)]

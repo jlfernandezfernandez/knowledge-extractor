@@ -3,8 +3,8 @@
 import asyncio
 from contextlib import suppress
 
-import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 
 from ... import wiring
 
@@ -22,13 +22,33 @@ async def transcribe_live(websocket: WebSocket) -> None:
     Decoding blocks, so it runs in a worker thread — otherwise a long segment
     would stall the event loop and stop the socket draining.
     """
+    if not wiring.speech_available():
+        await websocket.send_denial_response(
+            JSONResponse(
+                status_code=501,
+                content={
+                    "code": "speech_unavailable",
+                    "message": "speech is not available",
+                },
+            )
+        )
+        return
+
     await websocket.accept()
     try:
         transcriber = await asyncio.to_thread(wiring.create_transcriber)
     except Exception as error:
-        await websocket.send_json({"type": "error", "detail": str(error)})
+        await websocket.send_json(
+            {
+                "type": "error",
+                "code": "speech_unavailable",
+                "message": "speech is not available",
+            }
+        )
         await websocket.close()
         return
+
+    import numpy as np
 
     await websocket.send_json({"type": "ready"})
     try:

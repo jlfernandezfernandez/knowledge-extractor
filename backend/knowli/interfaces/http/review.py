@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterable
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from ... import wiring
@@ -21,8 +21,10 @@ from .sse import review_events
 router = APIRouter(prefix="/api/contributions", tags=["contributions"])
 
 
-def get_contribution_service() -> ContributionService:
-    return wiring.contribution_service()
+def get_contribution_service(
+    request: Request, _: CurrentUserDep
+) -> ContributionService:
+    return wiring.services(request.app).contributions
 
 
 ContributionServiceDep = Annotated[ContributionService, Depends(get_contribution_service)]

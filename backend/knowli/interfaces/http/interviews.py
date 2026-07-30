@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
 from ... import wiring
 from ...application.interviews import CaptureService, InterviewService
@@ -19,12 +19,14 @@ from .schemas import (
 router = APIRouter(prefix="/api/interviews", tags=["interviews"])
 
 
-def get_interview_service() -> InterviewService:
-    return wiring.interview_service()
+def get_interview_service(request: Request, _: CurrentUserDep) -> InterviewService:
+    return wiring.services(request.app).interviews
 
 
-def get_contribution_service() -> ContributionService:
-    return wiring.contribution_service()
+def get_contribution_service(
+    request: Request, _: CurrentUserDep
+) -> ContributionService:
+    return wiring.services(request.app).contributions
 
 
 InterviewServiceDep = Annotated[InterviewService, Depends(get_interview_service)]
