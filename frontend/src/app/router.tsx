@@ -6,6 +6,8 @@ import { AuthScreen } from "@/features/auth/auth-screen";
 import { useAuth } from "@/features/auth/auth-provider";
 import { HomePage } from "@/features/home/home-page";
 import { InterviewsPage } from "@/features/interviews/interviews-page";
+import { AskPage } from "@/features/ask/ask-page";
+import { HistoryPage } from "@/features/history/history-page";
 import { ReviewPage } from "@/features/review/review-page";
 import type { AuthenticatedUser } from "@/features/auth/types";
 import { AppShell } from "./shell";
@@ -26,11 +28,6 @@ function PublicRoute({ user, register }: { user: AuthenticatedUser | null; regis
   return <AuthScreen mode={register ? "register" : "login"} />;
 }
 
-function RoutedPage({ page }: { page: "knowledge" | "ask" | "interviews" | "history" | "review" }) {
-  const { t } = useTranslation();
-  return <PageState title={t(`pages.${page}.title`)} description={t(`pages.${page}.description`)} />;
-}
-
 // oxlint-disable-next-line react/only-export-components -- route tests need the real route tree.
 export function createRoutes(user: AuthenticatedUser | null, options: RouterOptions = {}): RouteObject[] {
   return [
@@ -38,9 +35,9 @@ export function createRoutes(user: AuthenticatedUser | null, options: RouterOpti
       element: <ProtectedRoute user={user} onLogout={options.onLogout} />,
       children: [
         { path: "/", element: <HomePage /> },
-        { path: "/ask", element: <RoutedPage page="ask" /> },
+        { path: "/ask", element: <AskPage /> },
         { path: "/interviews", element: <InterviewsPage /> },
-        { path: "/history", element: <RoutedPage page="history" /> },
+        { path: "/history", element: <HistoryPage /> },
         { path: "/review/:id", element: <ReviewPage /> },
       ],
     },
