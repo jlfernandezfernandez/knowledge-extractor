@@ -9,6 +9,7 @@ import { ApiError, API_URL } from "@/lib/api";
 import { contributionsApi } from "@/features/contributions/api";
 import type { ClaimDraft, Contribution } from "@/features/contributions/types";
 import { interviewsApi, type Interview } from "@/features/interviews/api";
+import { clearInterviewContext, readInterviewContext } from "@/features/interviews/context";
 
 type DraftAction =
   | { type: "reset"; claims: ClaimDraft[] }
@@ -27,7 +28,7 @@ export function ReviewPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const location = useLocation();
-  const interview = (location.state as { interview?: Interview } | null)?.interview;
+  const interview = (location.state as { interview?: Interview } | null)?.interview ?? readInterviewContext(id);
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [drafts, dispatch] = useReducer(draftReducer, []);
   const [answer, setAnswer] = useState("");
@@ -71,7 +72,10 @@ export function ReviewPage() {
     if (!interview || !answer.trim()) return;
     setBusy(true);
     setError(null);
-    try { update(await interviewsApi.answer(interview.id, answer.trim())); } catch (failure) { setError(failure); } finally { setBusy(false); }
+    try {
+      update(await interviewsApi.answer(interview.id, answer.trim()));
+      clearInterviewContext(id);
+    } catch (failure) { setError(failure); } finally { setBusy(false); }
   }
 
   if (!contribution) return <div className="mx-auto max-w-3xl px-4 py-10"><p>{t("review.loading")}</p><ErrorNote error={error} /></div>;
@@ -93,7 +97,7 @@ export function ReviewPage() {
         busy={busy}
         onEdit={(draftKey, field, value) => dispatch({ type: "edit", draftKey, field, value })}
         onConfirm={() => void perform(() => contributionsApi.confirm(id, contribution.revision, drafts))}
-        onResolve={() => void perform(() => contributionsApi.resolve(id, contribution.revision, contribution.conflicts.map((conflict) => ({ claim_draft_key: conflict.claim_draft_key, action: "keep_new" }))))}
+        onResolve={(resolutions) => void perform(() => contributionsApi.resolve(id, contribution.revision, resolutions))}
         onCommit={() => void perform(() => contributionsApi.commit(id, contribution.revision))}
         onBack={() => void perform(() => contributionsApi.back(id, contribution.revision))}
       />}

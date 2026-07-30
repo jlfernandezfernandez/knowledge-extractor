@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { interviewsApi, type Interview, type InterviewView } from "./api";
+import { rememberInterviewContext } from "./context";
 import { InterviewDialog } from "./interview-dialog";
 
 function InterviewRow({ interview, onStart }: { interview: Interview; onStart: (interview: Interview) => void }) {
@@ -36,6 +37,7 @@ export function InterviewsPage() {
     setError(null);
     try {
       const started = await interviewsApi.start(interview.id);
+      rememberInterviewContext(started.contribution_id, started.interview);
       navigate(`/review/${started.contribution_id}`, { state: { interview: started.interview } });
     } catch (failure) {
       setError(failure);
@@ -45,7 +47,7 @@ export function InterviewsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10">
       <div className="flex items-center justify-between gap-4"><div><h1 className="text-2xl font-semibold">{t("interviews.title")}</h1><p className="mt-1 text-muted-foreground">{t("interviews.lead")}</p></div><InterviewDialog onCreated={() => load(view)} /></div>
-      <Tabs value={view} onValueChange={(value) => setView(value as InterviewView)} className="mt-8">
+      <Tabs value={view} onValueChange={(value) => { setItems([]); setView(value as InterviewView); }} className="mt-8">
         <TabsList><TabsTrigger value="pending">{t("interviews.tabs.pending")}</TabsTrigger><TabsTrigger value="sent">{t("interviews.tabs.sent")}</TabsTrigger><TabsTrigger value="completed">{t("interviews.tabs.completed")}</TabsTrigger></TabsList>
         {(["pending", "sent", "completed"] as const).map((tab) => <TabsContent key={tab} value={tab}><ul className="mt-4">{items.length ? items.map((item) => <InterviewRow key={item.id} interview={item} onStart={(item) => void start(item)} />) : <li className="py-6 text-sm text-muted-foreground">{t(`interviews.empty.${tab}`)}</li>}</ul></TabsContent>)}
       </Tabs>

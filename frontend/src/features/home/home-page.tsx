@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { contributionsApi } from "@/features/contributions/api";
 import { interviewsApi, type Interview } from "@/features/interviews/api";
+import { rememberInterviewContext } from "@/features/interviews/context";
 
 function PendingInterview({ interview, onStart }: { interview: Interview; onStart: (interview: Interview) => void }) {
   const { t } = useTranslation();
@@ -53,6 +54,7 @@ export function HomePage() {
     setError(null);
     try {
       const started = await interviewsApi.start(interview.id);
+      rememberInterviewContext(started.contribution_id, started.interview);
       navigate(`/review/${started.contribution_id}`, { state: { interview: started.interview } });
     } catch (failure) {
       setError(failure);

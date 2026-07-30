@@ -190,6 +190,7 @@ export const en = {
     stages: { claims: "Review claims", conflicts: "Resolve conflicts", commit: "Ready to save", committed: "Saved" },
     claimTitle: "Claim title",
     claimStatement: "Claim statement",
+    mergedStatement: "Merged statement",
     confirm: "Continue to conflicts",
     resolve: "Continue to save",
     commit: "Save contribution",

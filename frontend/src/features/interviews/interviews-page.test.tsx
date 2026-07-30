@@ -47,6 +47,17 @@ describe("interviews", () => {
     ));
   });
 
+  it("clears the previous tab rows while the next tab is loading", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(response({ items: [interview] }));
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
+    renderPage();
+
+    await screen.findByText("Deployment retrospective");
+    fireEvent.click(screen.getByRole("tab", { name: "Sent" }));
+    expect(screen.queryByText("Deployment retrospective")).not.toBeInTheDocument();
+  });
+
   it("does not reveal people or person imagery in interview rows", async () => {
     renderPage();
 

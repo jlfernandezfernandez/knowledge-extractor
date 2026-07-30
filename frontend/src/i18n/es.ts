@@ -194,6 +194,7 @@ export const es: typeof en = {
     stages: { claims: "Revisar ideas", conflicts: "Resolver conflictos", commit: "Listo para guardar", committed: "Guardado" },
     claimTitle: "Título de la idea",
     claimStatement: "Texto de la idea",
+    mergedStatement: "Texto combinado",
     confirm: "Continuar a conflictos",
     resolve: "Continuar a guardar",
     commit: "Guardar aportación",
