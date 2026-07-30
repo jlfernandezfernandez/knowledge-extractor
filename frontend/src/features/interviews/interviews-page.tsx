@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { interviewsApi, type Interview, type InterviewView } from "./api";
-import { rememberInterviewContext } from "./context";
 import { InterviewDialog } from "./interview-dialog";
 
 function InterviewRow({ interview, onStart }: { interview: Interview; onStart: (interview: Interview) => void }) {
@@ -43,7 +42,6 @@ export function InterviewsPage() {
     setError(null);
     try {
       const started = await interviewsApi.start(interview.id);
-      rememberInterviewContext(started.contribution_id, started.interview);
       navigate(`/review/${started.contribution_id}`, { state: { interview: started.interview } });
     } catch (failure) {
       setError(failure);

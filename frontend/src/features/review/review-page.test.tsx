@@ -25,9 +25,9 @@ function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function renderReview() {
+function renderReview(entry: string | { pathname: string; state?: unknown } = "/review/contribution-1") {
   return render(
-    <MemoryRouter initialEntries={["/review/contribution-1"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/review/:id" element={<ReviewPage />} />
       </Routes>
@@ -41,7 +41,7 @@ describe("contribution review", () => {
     vi.stubGlobal("EventSource", class { close() {} addEventListener() {} });
   });
 
-  afterEach(() => { sessionStorage.clear(); vi.unstubAllGlobals(); });
+  afterEach(() => vi.unstubAllGlobals());
 
   it.each([
     ["claims", "Review claims"],
@@ -83,17 +83,14 @@ describe("contribution review", () => {
     );
   });
 
-  it("restores interview context on a direct review route and submits only the answer", async () => {
-    sessionStorage.setItem("knowli.interview.contribution-1", JSON.stringify({
-      contribution_id: "contribution-1",
-      interview: {
-        id: "interview-1", requester_id: "requester-1", assignee_id: "user-1", title: "Deployment retrospective", brief: "Explain the Friday release process.", status: "started", created_at: "2026-07-30T08:00:00Z", started_at: "2026-07-30T08:01:00Z", completed_at: null,
-      },
-    }));
+  it("uses the navigation interview context and submits only the answer", async () => {
+    const interview = {
+      id: "interview-1", requester_id: "requester-1", assignee_id: "user-1", title: "Deployment retrospective", brief: "Explain the Friday release process.", status: "started" as const, created_at: "2026-07-30T08:00:00Z", started_at: "2026-07-30T08:01:00Z", completed_at: null,
+    };
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "", stage: "claims" }));
     fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "We deploy on Fridays.", stage: "claims" }));
-    renderReview();
+    renderReview({ pathname: "/review/contribution-1", state: { interview } });
 
     expect(await screen.findByRole("heading", { name: "Deployment retrospective" })).toBeInTheDocument();
     expect(screen.getByText("Explain the Friday release process.")).toBeInTheDocument();
@@ -105,21 +102,29 @@ describe("contribution review", () => {
       "http://localhost:8000/api/interviews/interview-1/answer",
       expect.objectContaining({ method: "POST", body: JSON.stringify({ raw_text: "We deploy on Fridays." }) }),
     );
-    expect(sessionStorage.getItem("knowli.interview.contribution-1")).toBeNull();
   });
 
-  it("recovers interview context from the server when a direct route has no local state", async () => {
+  it("recovers and submits interview context from the server on a direct route", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "", stage: "claims" }));
     fetchMock.mockResolvedValueOnce(response({
       id: "interview-1", requester_id: "requester-1", assignee_id: "user-1", title: "Deployment retrospective", brief: "Explain the Friday release process.", status: "started", created_at: "2026-07-30T08:00:00Z", started_at: "2026-07-30T08:01:00Z", completed_at: null,
     }));
+    fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "We deploy on Fridays.", stage: "claims" }));
     renderReview();
 
     expect(await screen.findByRole("heading", { name: "Deployment retrospective" })).toBeInTheDocument();
+    expect(sessionStorage.getItem("knowli.interview.contribution-1")).toBeNull();
     expect(fetchMock).toHaveBeenLastCalledWith(
       "http://localhost:8000/api/interviews/by-contribution/contribution-1",
       expect.objectContaining({ credentials: "include" }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Your interview answer" }), { target: { value: "We deploy on Fridays." } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(await screen.findByRole("heading", { name: "Review claims" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://localhost:8000/api/interviews/interview-1/answer",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ raw_text: "We deploy on Fridays." }) }),
     );
   });
 
