@@ -278,7 +278,6 @@ it.
 - `requester_id` and `assignee_id` foreign keys;
 - `title` and optional `brief`;
 - status `pending`, `started`, or `completed`;
-- nullable `contribution_id`;
 - created, started, and completed timestamps.
 
 ### `contribution`
@@ -287,6 +286,7 @@ it.
 - `author_id` foreign key;
 - kind `voluntary` or `interview`;
 - nullable unique `interview_id`;
+- `source`;
 - original `raw_text`;
 - current stage and summary;
 - created, updated, and committed timestamps.
