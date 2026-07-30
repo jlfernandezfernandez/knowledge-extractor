@@ -122,6 +122,19 @@ def test_commit_retry_requires_the_original_revision_and_full_payload(database: 
         )
 
 
+def test_commit_retry_rejects_duplicate_keys_when_another_claim_is_omitted(
+    database: ConnectionPool,
+):
+    store = PostgresStore(database)
+    contribution = store.create_contribution(_user(database, "Quinn"), "Text", "text")
+    first = _claim("first", "First", "First stored statement")
+    second = _claim("second", "Second", "Second stored statement")
+    store.commit_claims(contribution.id, 0, [first, second])
+
+    with pytest.raises(StaleRevision):
+        store.commit_claims(contribution.id, 0, [first, first])
+
+
 def test_commit_returns_the_result_of_its_locked_transaction(
     database: ConnectionPool, monkeypatch: pytest.MonkeyPatch
 ):

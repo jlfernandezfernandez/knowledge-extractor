@@ -100,7 +100,10 @@ class PostgresStore:
             if contribution[0] == "committed":
                 if contribution[1] != expected_revision + 1:
                     raise StaleRevision(contribution_id)
-                if len(claims) != connection.execute(
+                draft_keys = {claim.draft_key for claim in claims}
+                if len(draft_keys) != len(claims):
+                    raise StaleRevision(contribution_id)
+                if len(draft_keys) != connection.execute(
                     "SELECT count(*) FROM claim WHERE contribution_id = %s", (contribution_id,)
                 ).fetchone()[0]:
                     raise StaleRevision(contribution_id)
