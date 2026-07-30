@@ -73,6 +73,29 @@ def _client(interview_service, ask_service):
     )
 
 
+class InvalidCursorStore:
+    def list_history(self, cursor, limit):
+        raise ValueError("invalid history cursor")
+
+
+def _invalid_cursor_client():
+    from knowli.application.ask import AskService
+
+    app = FastAPI()
+    register_error_handlers(app)
+    app.include_router(history.router)
+    app.dependency_overrides[history.get_ask_service] = lambda: AskService(
+        InvalidCursorStore(), object(), object()
+    )
+    app.dependency_overrides[auth.require_user] = lambda: User(
+        id="assignee", email="assignee@example.test", display_name="Assignee"
+    )
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://testserver",
+    )
+
+
 @pytest.mark.anyio
 async def test_global_routes_require_auth_and_use_the_global_contract():
     """Reintroducing the old team router would reject this authenticated global request."""
@@ -94,3 +117,16 @@ async def test_global_routes_require_auth_and_use_the_global_contract():
     )
     assert asked.json()["sufficient_evidence"] is True
     assert listed_history.json() == {"items": [], "next_cursor": None}
+
+
+@pytest.mark.anyio
+async def test_malformed_history_cursor_has_a_stable_client_error():
+    """An opaque cursor belongs to the client contract and must not produce a server error."""
+    async with _invalid_cursor_client() as client:
+        response = await client.get("/api/history?cursor=not-a-cursor")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "invalid_history_cursor",
+        "message": "invalid history cursor",
+    }

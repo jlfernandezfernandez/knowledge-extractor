@@ -126,6 +126,22 @@ async def test_create_and_edit_use_public_contribution_contracts(service):
 
 
 @pytest.mark.anyio
+async def test_generic_capture_rejects_an_interview_id(service):
+    """Accepting an interview id here would bypass assignee and started-status checks."""
+    async with _client(service) as client:
+        response = await client.post(
+            "/api/contributions",
+            json={
+                "raw_text": "An unauthorized interview answer.",
+                "source": "text",
+                "interview_id": "00000000-0000-0000-0000-000000000001",
+            },
+        )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
 async def test_stale_revision_has_stable_http_conflict(service):
     async with _client(service) as client:
         response = await client.post(

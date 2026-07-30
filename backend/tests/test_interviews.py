@@ -75,8 +75,8 @@ class FakeContributionService:
     def __init__(self) -> None:
         self.calls = []
 
-    def capture(self, user_id, raw_text, source, interview_id=None):
-        self.calls.append((user_id, raw_text, source, interview_id))
+    def capture_interview_answer(self, user_id, raw_text, interview_id):
+        self.calls.append((user_id, raw_text, interview_id))
         return {"id": "contribution-interview-1", "raw_text": raw_text}
 
 
@@ -113,7 +113,7 @@ def test_assignee_starts_once_and_only_submitted_answer_reaches_extraction():
     )
     assert answer == {"id": "contribution-interview-1", "raw_text": "Deploy on Tuesdays."}
     assert captured_by.calls == [
-        ("assignee", "Deploy on Tuesdays.", "text", interview.id)
+        ("assignee", "Deploy on Tuesdays.", interview.id)
     ]
     assert "Secret requester context" not in captured_by.calls[0][1]
 

@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ...application.auth import InvalidCredentials, InvalidRegistration, SessionExpired
-from ...application.ask import InvalidQuestion
+from ...application.ask import InvalidHistoryCursor, InvalidQuestion
 from ...application.interviews import InterviewUnavailable, InvalidInterview
 from ...application.review import (
     ContributionUnavailable,
@@ -71,6 +71,10 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(InvalidQuestion)
     def invalid_question(_: Request, error: InvalidQuestion) -> JSONResponse:
         return _error(400, "invalid_question", str(error))
+
+    @app.exception_handler(InvalidHistoryCursor)
+    def invalid_history_cursor(_: Request, error: InvalidHistoryCursor) -> JSONResponse:
+        return _error(400, "invalid_history_cursor", str(error))
 
     @app.exception_handler(InvalidInterview)
     def invalid_interview(_: Request, error: InvalidInterview) -> JSONResponse:

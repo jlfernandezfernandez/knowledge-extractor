@@ -15,8 +15,8 @@ class InterviewUnavailable(LookupError):
 
 
 class CaptureService(Protocol):
-    def capture(
-        self, user_id: str, raw_text: str, source: str, interview_id: str | None = None
+    def capture_interview_answer(
+        self, user_id: str, raw_text: str, interview_id: str
     ) -> dict: ...
 
 
@@ -62,4 +62,4 @@ class InterviewService:
             raise InvalidInterview("the interview must be started before answering")
         if not raw_text.strip():
             raise InvalidInterview("an answer is required")
-        return contributions.capture(user_id, raw_text, "text", interview_id)
+        return contributions.capture_interview_answer(user_id, raw_text, interview_id)

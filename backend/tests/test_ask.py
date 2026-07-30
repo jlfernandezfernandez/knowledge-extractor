@@ -121,3 +121,17 @@ def test_history_preserves_store_cursor_and_provenance():
         "next_cursor": "opaque-next-page",
     }
     assert store.history_calls == [("opaque-current-page", 20)]
+
+
+def test_history_translates_a_malformed_store_cursor_to_an_application_error():
+    """Leaking a cursor parse ValueError would turn a bad client page into a 500."""
+    import pytest
+
+    from knowli.application.ask import AskService, InvalidHistoryCursor
+
+    class InvalidCursorStore(FakeStore):
+        def list_history(self, cursor, limit):
+            raise ValueError("invalid history cursor")
+
+    with pytest.raises(InvalidHistoryCursor, match="invalid history cursor"):
+        AskService(InvalidCursorStore([]), FakeModel(), FakeEmbedder()).history("bad", 20)

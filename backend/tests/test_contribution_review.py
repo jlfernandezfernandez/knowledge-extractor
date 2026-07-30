@@ -232,11 +232,8 @@ def test_interview_brief_is_not_added_to_extractable_text(service):
     brief = "Extract the quarterly target from this requester brief."
     store.interviews[interview_id] = {"id": interview_id, "brief": brief}
 
-    captured = review.capture(
-        "author-1",
-        "My answer only.",
-        "interview",
-        interview_id=interview_id,
+    captured = review.capture_interview_answer(
+        "author-1", "My answer only.", interview_id
     )
 
     assert captured["raw_text"] == "My answer only."

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ...domain.claim import ClaimDraft, ContributionStage
 from ...domain.conflict import ConflictResolution
@@ -31,9 +31,10 @@ class AuthResponse(BaseModel):
 
 
 class ContributionCaptureRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     raw_text: str
     source: str = "text"
-    interview_id: str | None = None
 
 
 class InterviewCreateRequest(BaseModel):

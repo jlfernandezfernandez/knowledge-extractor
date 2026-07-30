@@ -12,6 +12,10 @@ class InvalidQuestion(ValueError):
     pass
 
 
+class InvalidHistoryCursor(ValueError):
+    pass
+
+
 class AskService:
     def __init__(
         self,
@@ -49,7 +53,10 @@ class AskService:
         }
 
     def history(self, cursor: str | None, limit: int) -> dict:
-        items, next_cursor = self._store.list_history(cursor, limit)
+        try:
+            items, next_cursor = self._store.list_history(cursor, limit)
+        except ValueError as error:
+            raise InvalidHistoryCursor("invalid history cursor") from error
         return {
             "items": [asdict(item) for item in items],
             "next_cursor": next_cursor,
