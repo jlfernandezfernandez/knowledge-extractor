@@ -404,9 +404,18 @@ git commit -m "feat(auth): add simple cookie sessions"
 **Files:**
 
 - Modify: `backend/knowli/application/review.py`
-- Modify: `backend/knowli/infrastructure/llm/openai.py`
+- Modify: `backend/knowli/domain/conflict.py`
+- Modify: `backend/knowli/domain/ports.py`
+- Create: `backend/knowli/infrastructure/llm/openai.py`
+- Delete: `backend/knowli/infrastructure/llm/chat_model.py`
+- Delete: `backend/knowli/infrastructure/llm/extractor.py`
+- Modify: `backend/knowli/infrastructure/llm/schemas.py`
 - Modify: `backend/knowli/interfaces/http/review.py`
 - Modify: `backend/knowli/interfaces/http/sse.py`
+- Modify: `backend/knowli/interfaces/http/schemas.py`
+- Modify: `backend/knowli/interfaces/http/errors.py`
+- Modify: `backend/knowli/interfaces/http/__init__.py`
+- Modify: `backend/knowli/wiring.py`
 - Modify: `backend/tests/test_rewind.py`
 - Create: `backend/tests/test_contribution_review.py`
 - Create: `backend/tests/integration/test_contribution_http.py`
