@@ -32,8 +32,28 @@ docker compose up --build
 ```
 
 Open [http://localhost:3000](http://localhost:3000), create an account, and
-start contributing. The API starts without an OpenAI key, but capture and Ask
-need a configured model to produce useful results.
+start contributing. There is intentionally no default account: the first
+person registers their own email and password. The API starts without an
+OpenAI key, but capture and Ask need a configured model to produce useful
+results.
+
+### Open it from another device on your LAN
+
+Compose publishes only the web app on all interfaces, so after starting it you
+can open `http://<computer-ip>:3000` from a phone or another computer on the
+same network. Find the host IP in your system network settings and allow the
+port through its firewall if prompted. Change `KNOWLI_PORT` in `.env` if 3000
+is already in use.
+
+This is intended for a trusted home network, not direct exposure to the
+internet. It uses local HTTP and development cookies.
+
+The PostgreSQL data lives in the named `knowli_pgdata` Docker volume and
+survives container rebuilds and `docker compose down`. It is removed only by
+the explicit destructive command `docker compose down -v`.
+
+The first contribution may download the local embedding model, so its first
+run can take longer than later runs.
 
 ## Test and check
 
