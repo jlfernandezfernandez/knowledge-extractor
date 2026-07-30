@@ -99,6 +99,7 @@ function AuthPage({ register, onAuthenticated }: { register: boolean; onAuthenti
   );
 }
 
+// oxlint-disable-next-line react/only-export-components -- route tests need the real route tree.
 export function createRoutes(user: AuthenticatedUser | null, options: RouterOptions = {}): RouteObject[] {
   return [
     {

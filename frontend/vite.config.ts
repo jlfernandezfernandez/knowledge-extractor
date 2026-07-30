@@ -9,7 +9,6 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   server: { port: 5173 },
-  build: { chunkSizeWarningLimit: 600 },
   // Deep links like /review/<id> are resolved client-side; Vite's dev server
   // and any static host must fall back to index.html for unknown paths.
   appType: "spa",

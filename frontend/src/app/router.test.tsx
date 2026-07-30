@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
@@ -55,9 +55,10 @@ describe("application router", () => {
   it("opens a mobile navigation with all destinations", () => {
     renderRoute("/");
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    const mobileNavigation = within(screen.getByRole("dialog"));
 
     for (const label of ["Knowledge", "Ask", "Interviews", "History"]) {
-      expect(screen.getAllByRole("link", { name: label }).length).toBeGreaterThan(0);
+      expect(mobileNavigation.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });
 });
