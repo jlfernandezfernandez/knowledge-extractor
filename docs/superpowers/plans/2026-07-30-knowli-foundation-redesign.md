@@ -253,13 +253,23 @@ Expected: domain tests pass; the lock contains no `langchain`, `a2a-sdk`, or
 
 **Files:**
 
+- Create: `backend/knowli/infrastructure/postgres/migrations/004_contribution_revision.sql`
 - Modify: `backend/knowli/infrastructure/postgres/repository.py`
 - Modify: `backend/knowli/infrastructure/postgres/pool.py`
+- Modify: `backend/knowli/domain/claim.py`
+- Create: `backend/knowli/domain/contribution.py`
+- Modify: `backend/knowli/domain/ports.py`
+- Modify: `backend/tests/integration/test_migrations.py`
 - Create: `backend/tests/integration/test_store.py`
 
 **Interfaces:**
 
 - `PostgresStore` implements the minimal protocols from Task 2.
+- `contribution.revision` is an integer starting at zero and incremented by
+  every successful review-state mutation.
+- `ClaimToCommit`, `StoredContribution`, `ClaimSearchResult`, and `HistoryItem`
+  are small frozen dataclasses used at the store boundary; do not introduce a
+  generic result/model hierarchy.
 - `commit_claims(contribution_id, expected_revision, claims)` is one
   transaction and returns the stored contribution.
 - `search_claims(query_text, query_embedding, limit)` performs reciprocal-rank
@@ -268,6 +278,11 @@ Expected: domain tests pass; the lock contains no `langchain`, `a2a-sdk`, or
 - [ ] Write integration tests for global search across two authors, contribution
   history with provenance, optimistic revision rejection, and idempotent commit
   retry.
+
+- [ ] Add migration `004_contribution_revision.sql` with
+  `ALTER TABLE contribution ADD COLUMN revision integer NOT NULL DEFAULT 0`
+  and a non-negative check. Update migration tests to expect versions
+  `1, 2, 3, 4`, including repeat execution.
 
 - [ ] Run and confirm failure because repository methods still require a
   knowledge-base ID:
@@ -279,6 +294,10 @@ uv run --directory backend pytest tests/integration/test_store.py -q
 - [ ] Replace the repository with one concrete `PostgresStore`. Keep SQL beside
   the method that uses it. Use Pydantic/domain constructors only at the
   boundary; return typed values, not anonymous dictionaries.
+
+- [ ] Align `ContributionStore` with the concrete task contract. Remove
+  speculative methods that neither this task nor the next application service
+  consumes; add methods later at their first real consumer.
 
 - [ ] Implement hybrid retrieval as two CTEs with `row_number()`, then combine
   ranks with `1.0 / (60 + rank)`. Filter superseded claims and return at most
