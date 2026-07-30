@@ -5,7 +5,7 @@ import type { en } from "./en";
 export const es: typeof en = {
   app: {
     name: "Knowli",
-    tagline: "Lo que sabe una persona, donde el equipo pueda consultarlo",
+    tagline: "Conocimiento compartido, revisado por personas",
     ask: "Preguntar",
     newCapture: "Contar algo",
     openMenu: "Abrir el menú",
@@ -50,32 +50,6 @@ export const es: typeof en = {
   },
   sidebar: {
     signedAs: "Tu nombre",
-  },
-  bases: {
-    none: "Sin base de conocimiento",
-    create: "Nueva base de conocimiento",
-    name: "Nombre",
-    namePlaceholder: "Soporte — cocinas",
-    hint: "Una idea solo se compara con otras de la misma base de conocimiento. Separa los temas que no tienen que ver y los conflictos que te enseñe seguirán significando algo.",
-    cancel: "Cancelar",
-    confirm: "Crear",
-  },
-  recent: {
-    title: "Tus capturas",
-    empty: "Todavía nada. Lo que captures aparece aquí.",
-    failed: "No se han podido cargar tus capturas.",
-    untitled: "Captura sin resumen",
-    justNow: "ahora mismo",
-    minutes: "hace {{count}} min",
-    hours: "hace {{count}} h",
-    days: "hace {{count}} d",
-    stage: {
-      extracting: "Leyendo",
-      confirm: "Te está esperando",
-      detecting: "Comparando",
-      resolve: "Te está esperando",
-      done: "Guardado",
-    },
   },
   progress: {
     reading: "Leyendo",
@@ -145,7 +119,7 @@ export const es: typeof en = {
     titleNone: "No había nada nuevo",
     title_one: "{{count}} idea guardada",
     title_other: "{{count}} ideas guardadas",
-    lead: "Pulsa ⌘K para consultar la base de conocimiento.",
+    lead: "Pulsa ⌘K para consultar el conocimiento compartido.",
     replaced_one: "sustituye a {{count}} idea guardada",
     replaced_other: "sustituye a {{count}} ideas guardadas",
     toast_one: "{{count}} idea guardada",

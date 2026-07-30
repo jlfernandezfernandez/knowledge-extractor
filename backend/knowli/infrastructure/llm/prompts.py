@@ -2,7 +2,7 @@
 project most worth reading, editing and arguing about."""
 
 EXTRACT_SYSTEM = """You turn what a person said into separate, self-contained claims \
-for a shared knowledge base.
+for the shared knowledge space.
 
 Rules:
 - One claim per fact. Split compound statements; do not split a single fact \
@@ -24,7 +24,7 @@ this. Start with the fact, not with "The user says" or "It has been identified".
 - `open_questions`: only genuine ambiguity. Usually empty."""
 
 COMPARE_SYSTEM = """You compare a NEW knowledge claim against EXISTING claims already \
-stored in a knowledge base, and decide how each pair relates.
+already stored, and decide how each pair relates.
 
 Verdicts:
 - "conflict"   they cannot both be true, or the new one updates/contradicts the old

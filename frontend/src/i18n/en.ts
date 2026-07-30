@@ -1,7 +1,7 @@
 export const en = {
   app: {
     name: "Knowli",
-    tagline: "One person's knowledge, where the team can query it",
+    tagline: "Shared knowledge, reviewed by people",
     ask: "Ask",
     newCapture: "New capture",
     openMenu: "Open menu",
@@ -46,32 +46,6 @@ export const en = {
   },
   sidebar: {
     signedAs: "Your name",
-  },
-  bases: {
-    none: "No knowledge base",
-    create: "New knowledge base",
-    name: "Name",
-    namePlaceholder: "Support — kitchens",
-    hint: "A claim is only ever compared against others in the same knowledge base. Keep unrelated subjects apart and the conflicts you are shown stay meaningful.",
-    cancel: "Cancel",
-    confirm: "Create",
-  },
-  recent: {
-    title: "Your captures",
-    empty: "Nothing yet. What you capture shows up here.",
-    failed: "Could not load your captures.",
-    untitled: "Untitled capture",
-    justNow: "just now",
-    minutes: "{{count}} min ago",
-    hours: "{{count}} h ago",
-    days: "{{count}} d ago",
-    stage: {
-      extracting: "Reading",
-      confirm: "Waiting on you",
-      detecting: "Comparing",
-      resolve: "Waiting on you",
-      done: "Saved",
-    },
   },
   progress: {
     reading: "Reading",
@@ -141,7 +115,7 @@ export const en = {
     titleNone: "Nothing new to save",
     title_one: "{{count}} claim saved",
     title_other: "{{count}} claims saved",
-    lead: "Press ⌘K to query the knowledge base.",
+    lead: "Press ⌘K to ask the shared knowledge.",
     replaced_one: "replaces {{count}} stored claim",
     replaced_other: "replaces {{count}} stored claims",
     toast_one: "{{count}} claim saved",
