@@ -5,15 +5,54 @@ services:
       POSTGRES_USER: knowli
       POSTGRES_PASSWORD: knowli
       POSTGRES_DB: knowli
-    ports:
-      - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - knowli_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U knowli"]
+      test: ["CMD-SHELL", "pg_isready -U knowli -d knowli"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://knowli:knowli@db:5432/knowli
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      SPEECH_PROVIDER: ${SPEECH_PROVIDER:-}
+      SPEECH_MODEL_DIR: ${SPEECH_MODEL_DIR:-}
+      SPEECH_THREADS: ${SPEECH_THREADS:-4}
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      COOKIE_SECURE: "false"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; raise SystemExit(0 if urlopen('http://localhost:8000/api/health/ready').status == 200 else 1)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_URL: ""
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${KNOWLI_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/"]
       interval: 3s
       timeout: 3s
       retries: 20
 
 volumes:
-  pgdata:
+  knowli_pgdata:
+    name: knowli_pgdata

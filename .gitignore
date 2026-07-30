@@ -12,6 +12,7 @@ dist/
 # Local config
 .env
 .env.local
+*.env
 
 # OS
 .DS_Store
