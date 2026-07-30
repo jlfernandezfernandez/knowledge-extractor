@@ -13,7 +13,9 @@ from .application.ask import AskService
 from .application.auth import AuthService
 from .application.interviews import InterviewService
 from .application.review import ContributionService
+from .domain.ports import Embedder, Model
 from .infrastructure.embedding.embedder import ConfiguredEmbedder
+from .infrastructure.e2e import E2EEmbedder, E2EModel
 from .infrastructure.llm.openai import OpenAIModel
 from .infrastructure.postgres.pool import create_checkpoint_pool, create_pool
 from .infrastructure.postgres.repository import PostgresStore
@@ -26,8 +28,8 @@ class AppServices:
     _pool: ConnectionPool | None = field(default=None, init=False)
     _checkpoint_pool: ConnectionPool | None = field(default=None, init=False)
     _store: PostgresStore | None = field(default=None, init=False)
-    _model: OpenAIModel | None = field(default=None, init=False)
-    _embedder: ConfiguredEmbedder | None = field(default=None, init=False)
+    _model: Model | None = field(default=None, init=False)
+    _embedder: Embedder | None = field(default=None, init=False)
     _checkpointer: Any | None = field(default=None, init=False)
     _auth: AuthService | None = field(default=None, init=False)
     _contributions: ContributionService | None = field(default=None, init=False)
@@ -53,15 +55,15 @@ class AppServices:
         return self._store
 
     @property
-    def model(self) -> OpenAIModel:
+    def model(self) -> Model:
         if self._model is None:
-            self._model = OpenAIModel()
+            self._model = E2EModel() if config.E2E_DEPENDENCIES else OpenAIModel()
         return self._model
 
     @property
-    def embedder(self) -> ConfiguredEmbedder:
+    def embedder(self) -> Embedder:
         if self._embedder is None:
-            self._embedder = ConfiguredEmbedder()
+            self._embedder = E2EEmbedder() if config.E2E_DEPENDENCIES else ConfiguredEmbedder()
         return self._embedder
 
     @property

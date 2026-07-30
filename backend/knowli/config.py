@@ -17,3 +17,5 @@ SPEECH_PROVIDER = os.environ.get("SPEECH_PROVIDER")
 SPEECH_MODEL_DIR = os.environ.get("SPEECH_MODEL_DIR", "")
 SPEECH_THREADS = int(os.environ.get("SPEECH_THREADS", "4"))
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
+# This is intentionally set only by docker-compose.e2e.yml; it is not an HTTP switch.
+E2E_DEPENDENCIES = os.environ.get("KNOWLI_E2E_DEPENDENCIES", "false").lower() == "true"
