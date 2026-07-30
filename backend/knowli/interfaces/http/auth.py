@@ -1,108 +1,73 @@
-"""Local account and cookie-session endpoints for a self-hosted install."""
-import base64
-import hashlib
-import secrets
+"""HTTP parsing and cookie serialization for local account sessions."""
 
-from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel
+from typing import Annotated
 
-from ...infrastructure.postgres.pool import pool
+from fastapi import APIRouter, Depends, Request, Response, status
+
+from ... import config, wiring
+from ...application.auth import AuthService
+from ...domain.user import User
+from .schemas import AuthResponse, LoginRequest, RegisterRequest, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 COOKIE = "knowli_session"
 
 
-def _hash(password: str, salt: bytes | None = None) -> str:
-    salt = salt or secrets.token_bytes(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)
-    return base64.b64encode(salt + digest).decode()
+def get_auth_service() -> AuthService:
+    return wiring.auth_service
 
 
-def _valid(password: str, saved: str) -> bool:
-    raw = base64.b64decode(saved)
-    return secrets.compare_digest(_hash(password, raw[:16]), saved)
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
-def _token() -> tuple[str, str]:
-    value = secrets.token_urlsafe(32)
-    return value, hashlib.sha256(value.encode()).hexdigest()
-
-
-class Credentials(BaseModel):
-    email: str
-    password: str
-    display_name: str = ""
-    organisation_name: str = ""
-
-
-def _set(response: Response, token: str) -> None:
-    response.set_cookie(COOKIE, token, httponly=True, samesite="lax", max_age=60 * 60 * 24 * 14)
-
-
-def member(request: Request) -> dict:
+def require_user(request: Request, service: AuthServiceDep) -> User:
     token = request.cookies.get(COOKIE)
-    if not token:
-        raise HTTPException(401, "sign in required")
-    with pool().connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """SELECT u.id, u.display_name, u.email, t.id, t.name, kb.slug
-               FROM app_session s JOIN app_user u ON u.id=s.user_id
-               JOIN team_member m ON m.user_id=u.id JOIN team t ON t.id=m.team_id
-               JOIN knowledge_base kb ON kb.id=t.knowledge_base_id
-               WHERE s.token_hash=%s AND s.expires_at > now() LIMIT 1""",
-            (hashlib.sha256(token.encode()).hexdigest(),),
-        )
-        row = cur.fetchone()
-    if not row:
-        raise HTTPException(401, "sign in required")
-    return {"id": str(row[0]), "name": row[1], "email": row[2], "team": {"id": str(row[3]), "name": row[4], "knowledge_base": row[5]}}
+    if token is None:
+        from ...application.auth import SessionExpired
+
+        raise SessionExpired()
+    return service.authenticate(token)
 
 
-@router.post("/register")
-def register(body: Credentials, response: Response) -> dict:
-    if not body.email.strip() or len(body.password) < 8 or not body.display_name.strip():
-        raise HTTPException(400, "email, name and an 8-character password are required")
-    token, token_hash = _token()
-    with pool().connection() as conn, conn.cursor() as cur:
-        cur.execute("INSERT INTO app_user (email, display_name, password_hash) VALUES (%s,%s,%s) RETURNING id", (body.email.strip().lower(), body.display_name.strip(), _hash(body.password)))
-        user_id = cur.fetchone()[0]
-        cur.execute("INSERT INTO organisation (name) VALUES (%s) RETURNING id", (body.organisation_name.strip() or body.display_name.strip(),))
-        org = cur.fetchone()[0]
-        slug = hashlib.sha256(str(org).encode()).hexdigest()[:12]
-        cur.execute("SELECT id FROM workspace ORDER BY created_at LIMIT 1")
-        workspace = cur.fetchone()[0]
-        cur.execute("INSERT INTO knowledge_base (workspace_id,slug,name) VALUES (%s,%s,%s) RETURNING id", (workspace, slug, "Equipo principal"))
-        kb = cur.fetchone()[0]
-        cur.execute("INSERT INTO team (organisation_id, name, knowledge_base_id) VALUES (%s,%s,%s) RETURNING id", (org, "Equipo principal", kb))
-        team = cur.fetchone()[0]
-        cur.execute("INSERT INTO team_member (team_id, user_id) VALUES (%s,%s)", (team, user_id))
-        cur.execute("INSERT INTO app_session (token_hash,user_id,expires_at) VALUES (%s,%s,now()+interval '14 days')", (token_hash, user_id))
-    _set(response, token)
-    return {"user": {"id": str(user_id), "name": body.display_name.strip(), "email": body.email.strip().lower()}}
+CurrentUserDep = Annotated[User, Depends(require_user)]
 
 
-@router.post("/login")
-def login(body: Credentials, response: Response) -> dict:
-    with pool().connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT id, display_name, password_hash FROM app_user WHERE email=%s", (body.email.strip().lower(),))
-        row = cur.fetchone()
-        if not row or not _valid(body.password, row[2]):
-            raise HTTPException(401, "invalid email or password")
-        token, token_hash = _token()
-        cur.execute("INSERT INTO app_session (token_hash,user_id,expires_at) VALUES (%s,%s,now()+interval '14 days')", (token_hash, row[0]))
-    _set(response, token)
-    return {"user": {"id": str(row[0]), "name": row[1], "email": body.email.strip().lower()}}
+def _response(user: User) -> AuthResponse:
+    return AuthResponse(user=UserResponse(id=user.id, email=user.email, display_name=user.display_name))
 
 
-@router.get("/me")
-def me(request: Request) -> dict:
-    return {"user": member(request)}
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        COOKIE,
+        token,
+        httponly=True,
+        samesite="lax",
+        secure=config.COOKIE_SECURE,
+        max_age=config.SESSION_DAYS * 24 * 60 * 60,
+    )
 
 
-@router.post("/logout")
-def logout(request: Request, response: Response) -> dict:
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+def register(body: RegisterRequest, response: Response, service: AuthServiceDep) -> AuthResponse:
+    result = service.register(body.email, body.password, body.display_name)
+    _set_session_cookie(response, result.token)
+    return _response(result.user)
+
+
+@router.post("/login", response_model=AuthResponse)
+def login(body: LoginRequest, response: Response, service: AuthServiceDep) -> AuthResponse:
+    result = service.login(body.email, body.password)
+    _set_session_cookie(response, result.token)
+    return _response(result.user)
+
+
+@router.get("/me", response_model=AuthResponse)
+def me(user: CurrentUserDep) -> AuthResponse:
+    return _response(user)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(request: Request, response: Response, service: AuthServiceDep) -> None:
     if token := request.cookies.get(COOKIE):
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute("DELETE FROM app_session WHERE token_hash=%s", (hashlib.sha256(token.encode()).hexdigest(),))
+        service.logout(token)
     response.delete_cookie(COOKIE)
-    return {"ok": True}
