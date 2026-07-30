@@ -312,10 +312,12 @@ uv run --directory backend pytest tests/integration/test_store.py -q
 
 ```bash
 uv run --directory backend pytest tests/integration/test_store.py -q
-uv run --directory backend pytest -q
+uv run --directory backend pytest tests/integration/test_store.py tests/integration/test_migrations.py tests/test_policy.py -q
 ```
 
-Expected: all store and domain tests pass.
+Expected: all store, migration, and domain tests pass. The full backend suite
+returns as a gate in Task 7, after Tasks 4–6 migrate the application and HTTP
+consumers that still import the removed knowledge-base contracts.
 
 - [ ] Commit:
 
