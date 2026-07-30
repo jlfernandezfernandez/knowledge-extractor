@@ -41,6 +41,13 @@ class MemorySessionStore:
     def delete_session(self, token_hash: str) -> None:
         self.sessions.pop(token_hash, None)
 
+    def delete_user_sessions(self, user_id: str) -> None:
+        self.sessions = {
+            token_hash: session
+            for token_hash, session in self.sessions.items()
+            if session[0] != user_id
+        }
+
 
 def test_register_hashes_password_and_creates_an_opaque_session():
     """Plaintext password persistence would make this registration unsafe."""
@@ -80,15 +87,18 @@ def test_authenticate_rejects_an_expired_session():
         service.authenticate(result.token)
 
 
-def test_login_rotates_the_session_token():
-    """Reusing a login token would leave a stolen cookie valid indefinitely."""
+def test_login_revokes_the_previous_session_before_issuing_a_new_token():
+    """Leaving an old login token valid would leave a stolen cookie usable."""
     service = AuthService(MemorySessionStore(), session_days=14)
     registered = service.register("ada@example.test", "correct horse battery staple", "Ada")
+    assert service.authenticate(registered.token) == registered.user
 
     logged_in = service.login("ada@example.test", "correct horse battery staple")
 
     assert logged_in.user == registered.user
     assert logged_in.token != registered.token
+    with pytest.raises(SessionExpired):
+        service.authenticate(registered.token)
     assert service.authenticate(logged_in.token) == registered.user
 
 

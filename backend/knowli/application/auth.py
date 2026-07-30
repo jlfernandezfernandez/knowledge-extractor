@@ -54,6 +54,7 @@ class AuthService:
         credentials = self._store.get_user_credentials(email.strip().lower())
         if credentials is None or not self._passwords.verify(password, credentials.password_hash):
             raise InvalidCredentials()
+        self._store.delete_user_sessions(credentials.user.id)
         return self._session_for(credentials.user)
 
     def authenticate(self, raw_token: str) -> User:

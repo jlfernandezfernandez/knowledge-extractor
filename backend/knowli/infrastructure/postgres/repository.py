@@ -78,6 +78,10 @@ class PostgresStore:
         with self._pool.connection() as connection:
             connection.execute("DELETE FROM login_session WHERE token_hash = %s", (token_hash,))
 
+    def delete_user_sessions(self, user_id: str) -> None:
+        with self._pool.connection() as connection:
+            connection.execute("DELETE FROM login_session WHERE user_id = %s", (user_id,))
+
     def create_contribution(
         self, author_id: str, raw_text: str, source: str, interview_id: str | None = None
     ) -> StoredContribution:
