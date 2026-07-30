@@ -331,7 +331,11 @@ git commit -m "feat(db): implement global knowledge store"
 **Files:**
 
 - Create: `backend/knowli/application/auth.py`
+- Create: `backend/knowli/domain/user.py`
+- Modify: `backend/knowli/domain/ports.py`
+- Modify: `backend/knowli/infrastructure/postgres/repository.py`
 - Modify: `backend/knowli/interfaces/http/auth.py`
+- Create: `backend/knowli/interfaces/http/errors.py`
 - Modify: `backend/knowli/interfaces/http/schemas.py`
 - Modify: `backend/knowli/wiring.py`
 - Create: `backend/tests/test_auth.py`
@@ -343,6 +347,8 @@ git commit -m "feat(db): implement global knowledge store"
 - `AuthService.login(email, password) -> AuthResult`
 - `AuthService.authenticate(raw_token) -> User`
 - `AuthService.logout(raw_token) -> None`
+- `User` and `AuthResult` are frozen dataclasses. Session-store methods accept
+  `datetime` values and return `User`, never password-bearing dictionaries.
 - Cookie name: `knowli_session`; HTTP-only; SameSite=Lax; Secure follows
   `COOKIE_SECURE`.
 
@@ -367,10 +373,16 @@ uv run --directory backend pytest tests/test_auth.py tests/integration/test_auth
 - [ ] Make handlers parse/serialize only. Inject `AuthService`; remove all SQL
   and pool access from `interfaces/http/auth.py`.
 
+- [ ] Implement the five `SessionStore` operations on the existing
+  `PostgresStore`; translate unique-email violations into the application
+  error without exposing psycopg above infrastructure.
+
 - [ ] Add `require_user` as one FastAPI dependency shared by every protected
   route. Return stable error bodies:
   `{"code":"unauthenticated","message":"..."}` and
   `{"code":"validation_error","message":"...","fields":{...}}`.
+  Put exception-to-HTTP mapping in `interfaces/http/errors.py`; handlers must
+  not repeat try/except blocks.
 
 - [ ] Run:
 
