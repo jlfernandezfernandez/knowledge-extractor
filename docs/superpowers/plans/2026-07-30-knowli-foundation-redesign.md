@@ -481,9 +481,17 @@ git commit -m "feat(review): make contributions traceable and resumable"
 
 - Create: `backend/knowli/application/interviews.py`
 - Modify: `backend/knowli/application/ask.py`
+- Create: `backend/knowli/domain/interview.py`
+- Modify: `backend/knowli/domain/ports.py`
+- Modify: `backend/knowli/infrastructure/postgres/repository.py`
+- Modify: `backend/knowli/wiring.py`
 - Modify: `backend/knowli/interfaces/http/interviews.py`
-- Modify: `backend/knowli/interfaces/http/knowledge.py`
+- Create: `backend/knowli/interfaces/http/ask.py`
 - Create: `backend/knowli/interfaces/http/history.py`
+- Delete: `backend/knowli/interfaces/http/knowledge.py`
+- Modify: `backend/knowli/interfaces/http/__init__.py`
+- Modify: `backend/knowli/interfaces/http/schemas.py`
+- Modify: `backend/knowli/interfaces/http/errors.py`
 - Create: `backend/tests/test_interviews.py`
 - Create: `backend/tests/test_ask.py`
 - Create: `backend/tests/integration/test_interview_http.py`
@@ -517,6 +525,11 @@ uv run --directory backend pytest tests/test_interviews.py tests/test_ask.py tes
 
 - [ ] Implement `/api/history` as a read projection; do not add an audit-event
   write path.
+
+- [ ] Keep the public API global: remove knowledge-base slugs, team membership
+  checks, requester-name joins, and legacy interview session orchestration from
+  HTTP. Interview creation is a user-to-user request while all users share one
+  store.
 
 - [ ] Run:
 
