@@ -34,8 +34,8 @@ export const en = {
     email: "Email",
     password: "Password",
     failed: "Something went wrong. Please try again.",
-    login: { title: "Sign in", description: "Continue to your knowledge workspace.", submit: "Sign in", alternate: "Create an account" },
-    register: { title: "Create account", description: "Start contributing to shared knowledge.", submit: "Create account", alternate: "Sign in instead" },
+    login: { title: "Sign in", description: "Continue to Knowli.", submit: "Sign in", alternate: "Create an account" },
+    register: { title: "Create account", description: "Start using Knowli.", submit: "Create account", alternate: "Sign in instead" },
   },
   stepper: {
     label: "Progress",

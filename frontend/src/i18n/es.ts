@@ -38,8 +38,8 @@ export const es: typeof en = {
     email: "Correo electrónico",
     password: "Contraseña",
     failed: "Algo ha salido mal. Vuelve a intentarlo.",
-    login: { title: "Iniciar sesión", description: "Continúa a tu espacio de conocimiento.", submit: "Iniciar sesión", alternate: "Crear una cuenta" },
-    register: { title: "Crear cuenta", description: "Empieza a aportar conocimiento compartido.", submit: "Crear cuenta", alternate: "Inicia sesión" },
+    login: { title: "Iniciar sesión", description: "Continúa a Knowli.", submit: "Iniciar sesión", alternate: "Crear una cuenta" },
+    register: { title: "Crear cuenta", description: "Empieza a usar Knowli.", submit: "Crear cuenta", alternate: "Inicia sesión" },
   },
   stepper: {
     label: "Progreso",
