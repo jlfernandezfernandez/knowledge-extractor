@@ -20,6 +20,25 @@ test("a contributor can save knowledge and inspect its evidence", async ({ page 
   await page.getByRole("button", { name: "Save contribution" }).click();
   await expect(page.getByRole("heading", { name: "Saved" })).toBeVisible();
 
+  await page.getByRole("link", { name: "Knowledge" }).click();
+  await page.getByLabel("Your contribution").fill("Deploy production on Tuesdays.");
+  await page.getByRole("button", { name: "Create contribution" }).click();
+  await expect(page.getByRole("heading", { name: "Review claims" })).toBeVisible();
+  await page.getByRole("button", { name: "Continue to conflicts" }).click();
+  await expect(page.getByRole("heading", { name: "Resolve conflicts" })).toBeVisible();
+  await expect(page.getByText("The E2E contribution restates an approved deployment policy.")).toBeVisible();
+  await page.getByRole("button", { name: "Use yours" }).click();
+  const resolutionRequest = page.waitForRequest((request) =>
+    request.method() === "POST" && new URL(request.url()).pathname.endsWith("/resolve"),
+  );
+  await page.getByRole("button", { name: "Continue to save" }).click();
+  const resolution = (await resolutionRequest).postDataJSON() as { resolutions: Array<{ action: string }> };
+  expect(resolution.resolutions).toHaveLength(1);
+  expect(resolution.resolutions[0]).toMatchObject({ action: "keep_new" });
+  await expect(page.getByRole("heading", { name: "Ready to save" })).toBeVisible();
+  await page.getByRole("button", { name: "Save contribution" }).click();
+  await expect(page.getByRole("heading", { name: "Saved" })).toBeVisible();
+
   await page.getByRole("link", { name: "Ask" }).click();
   await page.getByLabel("Question").fill("When do we deploy?");
   await page.getByRole("button", { name: "Ask" }).click();

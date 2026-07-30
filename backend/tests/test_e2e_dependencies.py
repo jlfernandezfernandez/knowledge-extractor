@@ -16,6 +16,14 @@ def test_e2e_model_and_embedder_make_the_browser_journey_deterministic():
         }
     ]
     assert model.find_conflicts(claims, []) == []
+    assert model.find_conflicts(claims, [{"id": "claim-1"}]) == [
+        {
+            "claim_draft_key": "",
+            "existing_id": "claim-1",
+            "verdict": "conflict",
+            "reason": "The E2E contribution restates an approved deployment policy.",
+        }
+    ]
     answer = model.answer("When do we deploy?", [{"id": "claim-1"}])
     assert answer.answer == "The approved contribution says: Deploy production on Tuesdays."
     assert answer.cited_ids == ("claim-1",)

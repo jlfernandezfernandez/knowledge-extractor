@@ -21,7 +21,16 @@ class E2EModel:
     def find_conflicts(
         self, claims: list[ClaimDraft], candidates: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        return []
+        if not claims or not candidates:
+            return []
+        return [
+            {
+                "claim_draft_key": claims[0].draft_key,
+                "existing_id": candidates[0]["id"],
+                "verdict": "conflict",
+                "reason": "The E2E contribution restates an approved deployment policy.",
+            }
+        ]
 
     def answer(self, question: str, claims: list[dict[str, Any]]) -> AnswerResult:
         return AnswerResult(
