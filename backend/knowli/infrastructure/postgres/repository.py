@@ -73,6 +73,15 @@ class PostgresStore:
             ).fetchone()
         return User(id=row[0], email=row[1], display_name=row[2]) if row else None
 
+    def list_users(self, exclude_user_id: str) -> list[User]:
+        with self._pool.connection() as connection:
+            rows = connection.execute(
+                """SELECT id::text, email, display_name FROM app_user
+                   WHERE id <> %s ORDER BY display_name, email""",
+                (exclude_user_id,),
+            ).fetchall()
+        return [User(id=row[0], email=row[1], display_name=row[2]) for row in rows]
+
     def create_session(self, user_id: str, token_hash: str, expires_at: datetime) -> None:
         with self._pool.connection() as connection:
             connection.execute(

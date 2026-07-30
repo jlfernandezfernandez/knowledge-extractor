@@ -19,6 +19,7 @@ def _client() -> httpx.AsyncClient:
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(auth.router)
+    app.include_router(auth.users_router)
     service = AuthService(MemorySessionStore(), session_days=14)
     app.dependency_overrides[auth.get_auth_service] = lambda: service
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver")
@@ -80,6 +81,35 @@ async def test_login_me_and_logout_follow_the_session_contract():
     assert after_logout.status_code == 401
     assert after_logout.json() == {
         "code": "unauthenticated", "message": "sign in required"
+    }
+
+
+@pytest.mark.anyio
+async def test_authenticated_user_can_list_other_people_for_an_interview():
+    """Including yourself here would offer an interview request the API rejects."""
+    async with _client() as client:
+        await client.post(
+            "/api/auth/register",
+            json={
+                "email": "ada@example.test",
+                "password": "correct horse battery staple",
+                "display_name": "Ada",
+            },
+        )
+        await client.post(
+            "/api/auth/register",
+            json={
+                "email": "grace@example.test",
+                "password": "correct horse battery staple",
+                "display_name": "Grace Hopper",
+            },
+        )
+
+        response = await client.get("/api/users")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [{"id": "1", "email": "ada@example.test", "display_name": "Ada"}]
     }
 
 

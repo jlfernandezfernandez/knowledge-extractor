@@ -1,4 +1,5 @@
 import { post, request } from "@/lib/api/client";
+import type { AuthenticatedUser } from "@/features/auth/types";
 import type { Contribution } from "@/features/contributions/types";
 
 export type InterviewStatus = "pending" | "started" | "completed";
@@ -17,6 +18,7 @@ export type Interview = {
 };
 
 export const interviewsApi = {
+  users: () => request<{ items: AuthenticatedUser[] }>("/api/users").then((body) => body.items),
   list: (view: InterviewView) =>
     request<{ items: Interview[] }>(`/api/interviews?view=${view}`).then((body) => body.items),
   create: (input: { assignee_id: string; title: string; brief: string }) =>

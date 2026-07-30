@@ -25,6 +25,13 @@ class MemorySessionStore:
     def get_user_credentials(self, email: str) -> UserCredentials | None:
         return self.users.get(email)
 
+    def list_users(self, exclude_user_id: str) -> list[User]:
+        return [
+            credentials.user
+            for credentials in self.users.values()
+            if credentials.user.id != exclude_user_id
+        ]
+
     def create_session(self, user_id: str, token_hash: str, expires_at: datetime) -> None:
         self.sessions[token_hash] = (user_id, expires_at)
 

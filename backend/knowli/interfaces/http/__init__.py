@@ -23,6 +23,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(auth.users_router)
     app.include_router(review.router)
     app.include_router(interviews.router)
     app.include_router(ask.router)

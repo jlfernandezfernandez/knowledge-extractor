@@ -26,6 +26,10 @@ class UserResponse(BaseModel):
     display_name: str
 
 
+class UsersResponse(BaseModel):
+    items: list[UserResponse]
+
+
 class AuthResponse(BaseModel):
     user: UserResponse
 

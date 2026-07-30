@@ -42,7 +42,6 @@ multiple knowledge bases in v1.
 - Local email/password accounts and opaque server-side sessions.
 - One global vector-backed knowledge base shared by all registered users.
 - Voluntary text contributions.
-- Optional live dictation.
 - Interviews requested from one user to another.
 - Four-stage human review:
   capture, confirm claims, resolve conflicts, commit.
@@ -101,7 +100,7 @@ in-app brand use the same mark and accessible product name.
 
 ### Voluntary contribution
 
-1. The signed-in user writes or dictates text on `/`.
+1. The signed-in user writes text on `/`.
 2. The client creates a contribution with the authenticated user as author.
 3. LangGraph extracts discrete claims and pauses.
 4. `/review/:id` shows editable claims. The user can edit or remove each claim,
@@ -123,7 +122,7 @@ Nothing enters the knowledge base before the final commit.
 3. Starting it creates an empty contribution linked to the interview.
 4. Title and brief appear as visual context above the composer. They are not
    sent through extraction as if they were the assignee's answer.
-5. The assignee writes or dictates the answer and follows the standard review
+5. The assignee writes the answer and follows the standard review
    flow.
 6. Successful commit marks the interview completed.
 
@@ -341,9 +340,12 @@ contributions, claims, and supersession links.
 - `POST /api/ask`
 - `GET /api/claims/{id}/history`
 
-### Optional speech
+### Deferred optional speech
 
 - `WS /api/transcribe/live`
+
+The backend keeps this optional endpoint for a future speech-enabled client;
+the current web UI intentionally stays text-only.
 
 All routes except register, login, and health require a valid session. A
 resource the caller may not access returns 404. Retrieval and conflict checks

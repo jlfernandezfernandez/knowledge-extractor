@@ -85,14 +85,12 @@ class InvalidCursorStore:
 
 
 def _invalid_cursor_client():
-    from knowli.application.ask import AskService
+    from knowli.application.ask import HistoryService
 
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(history.router)
-    app.dependency_overrides[history.get_ask_service] = lambda: AskService(
-        InvalidCursorStore(), object(), object()
-    )
+    app.dependency_overrides[history.get_ask_service] = lambda: HistoryService(InvalidCursorStore())
     app.dependency_overrides[auth.require_user] = lambda: User(
         id="assignee", email="assignee@example.test", display_name="Assignee"
     )

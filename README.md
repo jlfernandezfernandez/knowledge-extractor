@@ -14,7 +14,7 @@ startup all fit in one approachable codebase.
 
 ## What it does
 
-- Lets registered users capture a contribution by typing or dictating.
+- Lets registered users capture a contribution by typing.
 - Extracts small, reviewable claims and pauses for human approval.
 - Finds related claims, asks the contributor to resolve meaningful overlap, and
   preserves lineage when a newer claim replaces an older one.

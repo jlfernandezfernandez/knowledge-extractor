@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from ... import config, wiring
 from ...application.auth import AuthService
 from ...domain.user import User
-from .schemas import AuthResponse, LoginRequest, RegisterRequest, UserResponse
+from .schemas import AuthResponse, LoginRequest, RegisterRequest, UserResponse, UsersResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+users_router = APIRouter(prefix="/api/users", tags=["users"])
 COOKIE = "knowli_session"
 
 
@@ -66,6 +67,16 @@ def login(body: LoginRequest, response: Response, service: AuthServiceDep) -> Au
 @router.get("/me", response_model=AuthResponse)
 def me(user: CurrentUserDep) -> AuthResponse:
     return _response(user)
+
+
+@users_router.get("", response_model=UsersResponse)
+def users(user: CurrentUserDep, service: AuthServiceDep) -> UsersResponse:
+    return UsersResponse(
+        items=[
+            UserResponse(id=person.id, email=person.email, display_name=person.display_name)
+            for person in service.list_users(user.id)
+        ]
+    )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

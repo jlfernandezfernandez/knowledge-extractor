@@ -93,19 +93,30 @@ describe("interviews", () => {
   it("creates an interview with the requested title and optional brief", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(response({ items: [] }));
+    fetchMock.mockResolvedValueOnce(response({
+      items: [{ id: "assignee-1", display_name: "Grace Hopper", email: "grace@example.test" }],
+    }));
     fetchMock.mockResolvedValueOnce(response(interview, 201));
     fetchMock.mockResolvedValueOnce(response({ items: [interview] }));
     renderPage();
 
     await screen.findByText("No pending interviews.");
     fireEvent.click(screen.getByRole("button", { name: "Request interview" }));
-    fireEvent.change(screen.getByLabelText("Assignee ID"), { target: { value: "assignee-1" } });
+    const person = await screen.findByLabelText("Person");
+    await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8000/api/users",
+      expect.objectContaining({ credentials: "include" }),
+    ));
+    await waitFor(() => expect(document.querySelector("datalist option"))
+      .toHaveAttribute("value", "Grace Hopper · grace@example.test"));
+    fireEvent.change(person, { target: { value: "Grace Hopper · grace@example.test" } });
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: interview.title } });
     fireEvent.change(screen.getByLabelText("Brief (optional)"), { target: { value: interview.brief } });
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
+      3,
       "http://localhost:8000/api/interviews",
       expect.objectContaining({
         method: "POST",

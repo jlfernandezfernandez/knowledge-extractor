@@ -66,12 +66,9 @@ export const es: typeof en = {
   capture: {
     step: "Paso 1 de 4",
     title: "¿Qué sabes?",
-    lead: "Escríbelo o díctalo, sin orden. No se guarda nada hasta que veas qué se ha entendido.",
+    lead: "Escríbelo con tus palabras. No se guarda nada hasta que veas qué se ha entendido.",
     placeholder:
       "El despliegue a staging pasó al viernes. Las releases del lunes chocaban con la review…",
-    record: "Dictar",
-    stop: "Parar de dictar",
-    listening: "Escuchando",
     submit: "Repasar",
     keyHint: "Enter para continuar · Mayús + Enter para salto de línea",
   },
@@ -84,7 +81,7 @@ export const es: typeof en = {
     untopiced: "Otros",
     count_one: "{{count}} idea",
     count_other: "{{count}} ideas",
-    empty: "No queda nada. Vuelve atrás y cuéntalo otra vez.",
+    empty: "No queda nada. Vuelve atrás y escríbelo otra vez.",
     unclear_one: "Una cosa que no tengo clara",
     unclear_other: "{{count}} cosas que no tengo claras",
     clarifyPlaceholder: "Contéstame y lo releo",
@@ -171,7 +168,8 @@ export const es: typeof en = {
     dialog: {
       title: "Pedir una entrevista",
       description: "Comparte una breve petición para obtener una respuesta concreta.",
-      assigneeId: "ID de la persona asignada",
+      assignee: "Persona",
+      assigneePlaceholder: "Elige una persona",
       titleLabel: "Título",
       brief: "Contexto (opcional)",
       submit: "Enviar petición",

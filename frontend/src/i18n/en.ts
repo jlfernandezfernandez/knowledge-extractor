@@ -62,12 +62,9 @@ export const en = {
   capture: {
     step: "Step 1 of 4",
     title: "What do you know?",
-    lead: "Type it or say it, in any order. Nothing is stored until you have seen what was understood.",
+    lead: "Write it in your own words. Nothing is stored until you have seen what was understood.",
     placeholder:
       "Staging deploys moved to Friday. Monday releases kept clashing with sprint review…",
-    record: "Dictate",
-    stop: "Stop dictating",
-    listening: "Listening",
     submit: "Read it back",
     keyHint: "Enter to continue · Shift + Enter for a new line",
   },
@@ -80,7 +77,7 @@ export const en = {
     untopiced: "Other",
     count_one: "{{count}} claim",
     count_other: "{{count}} claims",
-    empty: "Nothing left. Go back and say it again.",
+    empty: "Nothing left. Go back and write it again.",
     unclear_one: "One thing I'm unsure about",
     unclear_other: "{{count}} things I'm unsure about",
     clarifyPlaceholder: "Answer, and I'll read it again",
@@ -167,7 +164,8 @@ export const en = {
     dialog: {
       title: "Request an interview",
       description: "Share a short prompt for a focused answer.",
-      assigneeId: "Assignee ID",
+      assignee: "Person",
+      assigneePlaceholder: "Choose a person",
       titleLabel: "Title",
       brief: "Brief (optional)",
       submit: "Send request",

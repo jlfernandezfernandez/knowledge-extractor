@@ -102,10 +102,10 @@ def test_ask_returns_deterministic_insufficient_evidence_without_claims():
 
 def test_history_preserves_store_cursor_and_provenance():
     """Replacing the cursor or dropping author/source would break stable history pages."""
-    from knowli.application.ask import AskService
+    from knowli.application.ask import HistoryService
 
     store = FakeStore([])
-    result = AskService(store, FakeModel(), FakeEmbedder()).history("opaque-current-page", 20)
+    result = HistoryService(store).history("opaque-current-page", 20)
 
     assert result == {
         "items": [
@@ -139,11 +139,11 @@ def test_history_translates_a_malformed_store_cursor_to_an_application_error():
     """Leaking a cursor parse ValueError would turn a bad client page into a 500."""
     import pytest
 
-    from knowli.application.ask import AskService, InvalidHistoryCursor
+    from knowli.application.ask import HistoryService, InvalidHistoryCursor
 
     class InvalidCursorStore(FakeStore):
         def list_history(self, cursor, limit):
             raise ValueError("invalid history cursor")
 
     with pytest.raises(InvalidHistoryCursor, match="invalid history cursor"):
-        AskService(InvalidCursorStore([]), FakeModel(), FakeEmbedder()).history("bad", 20)
+        HistoryService(InvalidCursorStore([])).history("bad", 20)

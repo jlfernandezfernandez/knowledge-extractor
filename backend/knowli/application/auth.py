@@ -63,6 +63,9 @@ class AuthService:
             raise SessionExpired()
         return user
 
+    def list_users(self, exclude_user_id: str) -> list[User]:
+        return self._store.list_users(exclude_user_id)
+
     def logout(self, raw_token: str) -> None:
         self._store.delete_session(self._token_hash(raw_token))
 

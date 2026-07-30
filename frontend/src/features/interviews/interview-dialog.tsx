@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { AuthenticatedUser } from "@/features/auth/types";
 import { ErrorNote } from "@/components/common/error-note";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,6 +13,8 @@ export function InterviewDialog({ onCreated }: { onCreated: (interview: Intervie
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [assigneeId, setAssigneeId] = useState("");
+  const [people, setPeople] = useState<AuthenticatedUser[]>([]);
+  const [peopleLoading, setPeopleLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [brief, setBrief] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,8 +38,25 @@ export function InterviewDialog({ onCreated }: { onCreated: (interview: Intervie
     }
   }
 
+  function personLabel(person: AuthenticatedUser) {
+    return `${person.display_name} · ${person.email}`;
+  }
+
+  function changeOpen(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) return;
+    setPeopleLoading(true);
+    setError(null);
+    void interviewsApi.users()
+      .then(setPeople)
+      .catch(setError)
+      .finally(() => setPeopleLoading(false));
+  }
+
+  const selectedPerson = people.find((person) => person.id === assigneeId);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger render={<Button />}>{t("interviews.request")}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -44,7 +64,22 @@ export function InterviewDialog({ onCreated }: { onCreated: (interview: Intervie
           <DialogDescription>{t("interviews.dialog.description")}</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={(event) => void submit(event)}>
-          <div className="space-y-2"><Label htmlFor="assignee-id">{t("interviews.dialog.assigneeId")}</Label><Input id="assignee-id" value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)} /></div>
+          <div className="space-y-2">
+            <Label htmlFor="assignee">{t("interviews.dialog.assignee")}</Label>
+            <Input
+              id="assignee"
+              list="interview-people"
+              disabled={peopleLoading}
+              placeholder={t("interviews.dialog.assigneePlaceholder")}
+              value={selectedPerson ? personLabel(selectedPerson) : ""}
+              onChange={(event) => setAssigneeId(
+                people.find((person) => personLabel(person) === event.target.value)?.id ?? "",
+              )}
+            />
+            <datalist id="interview-people">
+              {people.map((person) => <option key={person.id} value={personLabel(person)} />)}
+            </datalist>
+          </div>
           <div className="space-y-2"><Label htmlFor="interview-title">{t("interviews.dialog.titleLabel")}</Label><Input id="interview-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div>
           <div className="space-y-2"><Label htmlFor="interview-brief">{t("interviews.dialog.brief")}</Label><Textarea id="interview-brief" value={brief} onChange={(event) => setBrief(event.target.value)} /></div>
           <ErrorNote error={error} />

@@ -41,6 +41,7 @@ async def test_web_app_has_only_the_cookie_protected_product_surface():
         ("POST", "/api/contributions/example/commit", {"revision": 1}),
         ("POST", "/api/contributions/example/back", {"revision": 1}),
         ("GET", "/api/contributions/example/events", None),
+        ("GET", "/api/users", None),
         ("GET", "/api/interviews", None),
         (
             "POST",
