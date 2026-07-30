@@ -108,9 +108,9 @@ describe("interviews", () => {
       "http://localhost:8000/api/users",
       expect.objectContaining({ credentials: "include" }),
     ));
-    await waitFor(() => expect(document.querySelector("datalist option"))
-      .toHaveAttribute("value", "Grace Hopper · grace@example.test"));
-    fireEvent.change(person, { target: { value: "Grace Hopper · grace@example.test" } });
+    await waitFor(() => expect(person.querySelector("option[value='assignee-1']"))
+      .toHaveTextContent("Grace Hopper · grace@example.test"));
+    fireEvent.change(person, { target: { value: "assignee-1" } });
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: interview.title } });
     fireEvent.change(screen.getByLabelText("Brief (optional)"), { target: { value: interview.brief } });
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));

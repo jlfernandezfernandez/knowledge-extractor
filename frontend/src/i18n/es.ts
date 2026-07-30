@@ -170,6 +170,7 @@ export const es: typeof en = {
       description: "Comparte una breve petición para obtener una respuesta concreta.",
       assignee: "Persona",
       assigneePlaceholder: "Elige una persona",
+      loadingPeople: "Cargando personas…",
       titleLabel: "Título",
       brief: "Contexto (opcional)",
       submit: "Enviar petición",

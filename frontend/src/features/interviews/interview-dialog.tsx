@@ -53,8 +53,6 @@ export function InterviewDialog({ onCreated }: { onCreated: (interview: Intervie
       .finally(() => setPeopleLoading(false));
   }
 
-  const selectedPerson = people.find((person) => person.id === assigneeId);
-
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger render={<Button />}>{t("interviews.request")}</DialogTrigger>
@@ -66,19 +64,16 @@ export function InterviewDialog({ onCreated }: { onCreated: (interview: Intervie
         <form className="space-y-4" onSubmit={(event) => void submit(event)}>
           <div className="space-y-2">
             <Label htmlFor="assignee">{t("interviews.dialog.assignee")}</Label>
-            <Input
+            <select
               id="assignee"
-              list="interview-people"
-              disabled={peopleLoading}
-              placeholder={t("interviews.dialog.assigneePlaceholder")}
-              value={selectedPerson ? personLabel(selectedPerson) : ""}
-              onChange={(event) => setAssigneeId(
-                people.find((person) => personLabel(person) === event.target.value)?.id ?? "",
-              )}
-            />
-            <datalist id="interview-people">
-              {people.map((person) => <option key={person.id} value={personLabel(person)} />)}
-            </datalist>
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={peopleLoading || people.length === 0}
+              value={assigneeId}
+              onChange={(event) => setAssigneeId(event.target.value)}
+            >
+              <option value="">{peopleLoading ? t("interviews.dialog.loadingPeople") : t("interviews.dialog.assigneePlaceholder")}</option>
+              {people.map((person) => <option key={person.id} value={person.id}>{personLabel(person)}</option>)}
+            </select>
           </div>
           <div className="space-y-2"><Label htmlFor="interview-title">{t("interviews.dialog.titleLabel")}</Label><Input id="interview-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div>
           <div className="space-y-2"><Label htmlFor="interview-brief">{t("interviews.dialog.brief")}</Label><Textarea id="interview-brief" value={brief} onChange={(event) => setBrief(event.target.value)} /></div>

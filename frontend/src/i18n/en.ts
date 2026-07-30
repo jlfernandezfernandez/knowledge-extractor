@@ -166,6 +166,7 @@ export const en = {
       description: "Share a short prompt for a focused answer.",
       assignee: "Person",
       assigneePlaceholder: "Choose a person",
+      loadingPeople: "Loading people…",
       titleLabel: "Title",
       brief: "Brief (optional)",
       submit: "Send request",
