@@ -1,7 +1,7 @@
 """The small external contracts used by Knowli services."""
 
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from .claim import ClaimDraft, ClaimSearchResult, ClaimToCommit, ContributionStage
 from .contribution import HistoryItem, StoredContribution
@@ -11,9 +11,11 @@ from .user import User, UserCredentials
 class Model(Protocol):
     def extract_claims(self, raw_text: str) -> list[ClaimDraft]: ...
 
-    def find_conflicts(self, claims: list[ClaimDraft], candidates: list[dict]) -> list[dict]: ...
+    def find_conflicts(
+        self, claims: list[ClaimDraft], candidates: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]: ...
 
-    def answer(self, question: str, claims: list[dict]) -> str: ...
+    def answer(self, question: str, claims: list[dict[str, Any]]) -> str: ...
 
 
 class Embedder(Protocol):

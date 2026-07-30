@@ -5,6 +5,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ...application.auth import InvalidCredentials, InvalidRegistration, SessionExpired
+from ...application.review import (
+    ContributionUnavailable,
+    InvalidReview,
+    ReviewStageError,
+)
+from ...domain.contribution import StaleRevision
 from ...domain.user import DuplicateEmail
 
 
@@ -43,3 +49,19 @@ def register_error_handlers(app: FastAPI) -> None:
             status_code=422,
             content={"code": "validation_error", "message": "invalid request", "fields": fields},
         )
+
+    @app.exception_handler(ContributionUnavailable)
+    def contribution_unavailable(_: Request, __: ContributionUnavailable) -> JSONResponse:
+        return _error(404, "not_found", "contribution not found")
+
+    @app.exception_handler(StaleRevision)
+    def stale_revision(_: Request, __: StaleRevision) -> JSONResponse:
+        return _error(409, "stale_revision", "contribution changed; refresh and try again")
+
+    @app.exception_handler(ReviewStageError)
+    def wrong_review_stage(_: Request, error: ReviewStageError) -> JSONResponse:
+        return _error(409, "invalid_stage", str(error))
+
+    @app.exception_handler(InvalidReview)
+    def invalid_review(_: Request, error: InvalidReview) -> JSONResponse:
+        return _error(400, "invalid_review", str(error))

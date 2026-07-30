@@ -1,114 +1,111 @@
-"""The review workflow over HTTP: one endpoint per step a person takes."""
+"""Authenticated, author-only contribution review routes."""
 
-import uuid
+from collections.abc import AsyncIterable
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 
-from ...application import knowledge_bases as kb_service
-from ...application import review
+from ... import wiring
+from ...application.review import ContributionService
+from .auth import CurrentUserDep
 from .schemas import (
-    CaptureRequest,
-    ConfirmRequest,
-    ResolveRequest,
-    SessionState,
-    SessionSummary,
+    ConfirmClaimsRequest,
+    ContributionCaptureRequest,
+    ContributionResponse,
+    ResolveConflictsRequest,
+    RevisionRequest,
 )
-from .sse import progress, sse, wants_stream
-from .auth import member
-from ...infrastructure.postgres.pool import pool
+from .sse import review_events
 
-router = APIRouter(tags=["review"])
+router = APIRouter(prefix="/api/contributions", tags=["contributions"])
 
 
-@router.get("/api/sessions")
-def sessions(knowledge_base: str | None = None, limit: int = 20) -> dict:
-    """The recent captures in a knowledge base, newest first.
-
-    Served from `review_session`, which is an index over LangGraph's
-    checkpointer rather than a second copy of it: rendering twenty rows should
-    not cost twenty deserialised graph states. Anything past the stage and the
-    summary comes from `GET /api/sessions/{id}`, which reads the real thing.
-    """
-    return {
-        "items": [SessionSummary(**s) for s in kb_service.sessions(knowledge_base, limit)]
-    }
+def get_contribution_service() -> ContributionService:
+    return wiring.contribution_service()
 
 
-@router.post("/api/sessions", response_model=None)
-def capture(body: CaptureRequest, request: Request) -> SessionState | StreamingResponse:
-    """Step 1 -> 2. Extract claims and pause for confirmation."""
-    if not body.text.strip():
-        raise HTTPException(400, "text is empty")
-    user = member(request)
-    session_id = str(uuid.uuid4())  # LangGraph's thread id
-    body.knowledge_base = user["team"]["knowledge_base"]
-    body.author = user["name"]
-    with pool().connection() as conn, conn.cursor() as cur:
-        cur.execute("INSERT INTO audit_event (team_id,actor_id,kind,subject_id) VALUES (%s,%s,'contribution_started',%s)", (user["team"]["id"], user["id"], session_id))
-    runner = review.start(
-        session_id, body.text, body.author, body.source, body.knowledge_base
-    )
-    if wants_stream(request):
-        return sse(progress(session_id, runner, body.knowledge_base))
-    review.drain(runner)
-    return SessionState(**review.state(session_id))
+ContributionServiceDep = Annotated[ContributionService, Depends(get_contribution_service)]
 
 
-@router.post("/api/sessions/{session_id}/confirm", response_model=None)
+@router.post("", response_model=ContributionResponse, status_code=status.HTTP_201_CREATED)
+def capture(
+    body: ContributionCaptureRequest,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+) -> dict:
+    if not body.raw_text.strip():
+        raise HTTPException(status_code=400, detail="raw_text is empty")
+    return service.capture(user.id, body.raw_text, body.source, body.interview_id)
+
+
+@router.get("/{contribution_id}", response_model=ContributionResponse)
+def get(
+    contribution_id: str,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+) -> dict:
+    return service.get(user.id, contribution_id)
+
+
+@router.post("/{contribution_id}/confirm", response_model=ContributionResponse)
 def confirm(
-    session_id: str, body: ConfirmRequest, request: Request
-) -> SessionState | StreamingResponse:
-    """Step 2 -> 3. Accept the claims (or send a clarification to re-extract)."""
-    # The knowledge base is the session's, not the request's: it was fixed when
-    # the capture started and a confirm has no business moving it. Read before
-    # resuming, because after a clarification loops back through extraction the
-    # progress events need it to say what the claims are being compared against.
-    knowledge_base = review.state(session_id)["knowledge_base"]
-    runner = review.confirm_claims(
-        session_id, [c.model_dump() for c in body.claims], body.clarification
+    contribution_id: str,
+    body: ConfirmClaimsRequest,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+) -> dict:
+    return service.confirm_claims(
+        user.id,
+        contribution_id,
+        body.revision,
+        [claim.model_dump() for claim in body.claims],
     )
-    if wants_stream(request):
-        return sse(progress(session_id, runner, knowledge_base))
-    review.drain(runner)
-    return SessionState(**review.state(session_id))
 
 
-@router.post("/api/sessions/{session_id}/resolve", response_model=SessionState)
-def resolve(session_id: str, body: ResolveRequest) -> SessionState:
-    """Step 3 -> 4. Apply the conflict decisions and index the result."""
-    try:
-        review.resolve(
-            session_id, {k: v.model_dump() for k, v in body.resolutions.items()}
-        )
-    except ValueError as error:
-        raise HTTPException(400, str(error))
-    return SessionState(**review.state(session_id))
+@router.post("/{contribution_id}/resolve", response_model=ContributionResponse)
+def resolve(
+    contribution_id: str,
+    body: ResolveConflictsRequest,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+) -> dict:
+    return service.resolve_conflicts(
+        user.id,
+        contribution_id,
+        body.revision,
+        [resolution.model_dump() for resolution in body.resolutions],
+    )
 
 
-@router.post("/api/sessions/{session_id}/back", response_model=SessionState)
-def back(session_id: str) -> SessionState:
-    """One gate backwards.
-
-    Restarting was the only way out of the conflict gate, and re-dictating three
-    paragraphs to fix one claim is not a review, it is a punishment. So: from
-    the resolve gate this rewinds the graph to the confirm gate with the claims
-    as they were (see `application.review.back` for how the checkpointer makes
-    that free).
-
-    From the confirm gate the graph has nowhere left to go — the step before it
-    is the text box, not a node — so this returns the state unchanged and the
-    frontend puts `raw_text` back in the composer. Answering with 200 and a
-    truthful state is kinder here than a 409 the caller would have to special-
-    case; the stage in the response already says nothing moved.
-
-    A committed review is a different matter and does get a 409: those claims
-    are in the store, superseding real rows that other people may already have
-    read. Rewinding that would be rewriting history rather than navigating it.
-    """
-    return SessionState(**review.back(session_id))
+@router.post("/{contribution_id}/commit", response_model=ContributionResponse)
+def commit(
+    contribution_id: str,
+    body: RevisionRequest,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+) -> dict:
+    return service.commit(user.id, contribution_id, body.revision)
 
 
-@router.get("/api/sessions/{session_id}", response_model=SessionState)
-def session(session_id: str) -> SessionState:
-    return SessionState(**review.state(session_id))
+@router.post("/{contribution_id}/back", response_model=ContributionResponse)
+def back(
+    contribution_id: str,
+    body: RevisionRequest,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+) -> dict:
+    return service.back(user.id, contribution_id, body.revision)
+
+
+@router.get("/{contribution_id}/events", response_class=EventSourceResponse)
+async def events(
+    contribution_id: str,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+    last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
+) -> AsyncIterable[ServerSentEvent]:
+    async for event in review_events(
+        service, user.id, contribution_id, last_event_id=last_event_id
+    ):
+        yield event
