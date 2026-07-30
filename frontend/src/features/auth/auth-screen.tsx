@@ -44,7 +44,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
     }
   }
 
-  const fieldError = (name: string) => fields[name] && <p id={`${name}-error`} className="text-sm text-destructive">{fields[name]}</p>;
+  const fieldError = (name: string) => fields[name] && <p id={`${name}-error`} role="alert" className="text-sm text-destructive">{fields[name]}</p>;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm items-center px-5">

@@ -164,6 +164,7 @@ export const es: typeof en = {
     lead: "Pide conocimiento concreto a otra persona.",
     request: "Pedir entrevista",
     start: "Iniciar entrevista",
+    loading: "Cargando entrevistas…",
     tabs: { pending: "Pendientes", sent: "Enviadas", completed: "Completadas" },
     status: { pending: "Pendiente", started: "En curso", completed: "Completada" },
     empty: { pending: "No hay entrevistas pendientes.", sent: "No hay entrevistas enviadas.", completed: "No hay entrevistas completadas." },

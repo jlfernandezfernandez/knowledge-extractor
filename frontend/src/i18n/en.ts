@@ -160,6 +160,7 @@ export const en = {
     lead: "Request focused knowledge from another person.",
     request: "Request interview",
     start: "Start interview",
+    loading: "Loading interviews…",
     tabs: { pending: "Pending", sent: "Sent", completed: "Completed" },
     status: { pending: "Pending", started: "In progress", completed: "Completed" },
     empty: { pending: "No pending interviews.", sent: "No sent interviews.", completed: "No completed interviews." },

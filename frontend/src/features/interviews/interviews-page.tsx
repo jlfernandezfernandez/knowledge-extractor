@@ -25,15 +25,23 @@ export function InterviewsPage() {
   const [view, setView] = useState<InterviewView>("pending");
   const [items, setItems] = useState<Interview[]>([]);
   const [error, setError] = useState<unknown>(null);
+  const [loading, setLoading] = useState(true);
   const requestVersion = useRef(0);
 
   const load = useCallback((next: InterviewView) => {
     const version = ++requestVersion.current;
     setError(null);
+    setLoading(true);
     void interviewsApi.list(next).then((nextItems) => {
-      if (version === requestVersion.current) setItems(nextItems);
+      if (version === requestVersion.current) {
+        setItems(nextItems);
+        setLoading(false);
+      }
     }).catch((failure) => {
-      if (version === requestVersion.current) setError(failure);
+      if (version === requestVersion.current) {
+        setError(failure);
+        setLoading(false);
+      }
     });
   }, []);
   useEffect(() => { load(view); }, [load, view]);
@@ -53,7 +61,7 @@ export function InterviewsPage() {
       <div className="flex items-center justify-between gap-4"><div><h1 className="text-2xl font-semibold">{t("interviews.title")}</h1><p className="mt-1 text-muted-foreground">{t("interviews.lead")}</p></div><InterviewDialog onCreated={() => load(view)} /></div>
       <Tabs value={view} onValueChange={(value) => { requestVersion.current += 1; setItems([]); setView(value as InterviewView); }} className="mt-8">
         <TabsList><TabsTrigger value="pending">{t("interviews.tabs.pending")}</TabsTrigger><TabsTrigger value="sent">{t("interviews.tabs.sent")}</TabsTrigger><TabsTrigger value="completed">{t("interviews.tabs.completed")}</TabsTrigger></TabsList>
-        {(["pending", "sent", "completed"] as const).map((tab) => <TabsContent key={tab} value={tab}><ul className="mt-4">{items.length ? items.map((item) => <InterviewRow key={item.id} interview={item} onStart={(item) => void start(item)} />) : <li className="py-6 text-sm text-muted-foreground">{t(`interviews.empty.${tab}`)}</li>}</ul></TabsContent>)}
+        {(["pending", "sent", "completed"] as const).map((tab) => <TabsContent key={tab} value={tab}><ul className="mt-4" aria-busy={loading}>{loading ? <li className="py-6 text-sm text-muted-foreground" role="status">{t("interviews.loading")}</li> : items.length ? items.map((item) => <InterviewRow key={item.id} interview={item} onStart={(item) => void start(item)} />) : <li className="py-6 text-sm text-muted-foreground">{t(`interviews.empty.${tab}`)}</li>}</ul></TabsContent>)}
       </Tabs>
       <ErrorNote error={error} />
     </div>

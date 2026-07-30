@@ -56,6 +56,8 @@ describe("interviews", () => {
     await screen.findByText("Deployment retrospective");
     fireEvent.click(screen.getByRole("tab", { name: "Sent" }));
     expect(screen.queryByText("Deployment retrospective")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading interviews…");
+    expect(screen.queryByText("No sent interviews.")).not.toBeInTheDocument();
   });
 
   it("ignores an older tab response that resolves after the active tab", async () => {

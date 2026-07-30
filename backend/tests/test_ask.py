@@ -123,6 +123,18 @@ def test_history_preserves_store_cursor_and_provenance():
     assert store.history_calls == [("opaque-current-page", 20)]
 
 
+def test_history_service_does_not_require_an_llm():
+    """Reading history must work locally without an OpenAI key."""
+    from knowli.application.ask import HistoryService
+
+    store = FakeStore([])
+
+    result = HistoryService(store).history(None, 20)
+
+    assert result["items"][0]["contribution_id"] == "contribution-1"
+    assert result["next_cursor"] == "opaque-next-page"
+
+
 def test_history_translates_a_malformed_store_cursor_to_an_application_error():
     """Leaking a cursor parse ValueError would turn a bad client page into a 500."""
     import pytest

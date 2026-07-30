@@ -84,7 +84,7 @@ describe("authentication", () => {
     );
   });
 
-  it("shows backend field errors next to the invalid field", async () => {
+  it("announces backend field errors next to the invalid field", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(response({ code: "unauthenticated", message: "sign in required" }, 401));
     fetchMock.mockResolvedValueOnce(response({
@@ -99,7 +99,8 @@ describe("authentication", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "correct horse battery staple" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
-    expect(await screen.findByText("email is required")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("email is required");
+    expect(screen.getByLabelText("Email")).toHaveAttribute("aria-describedby", "email-error");
   });
 
   it("restores an existing session", async () => {

@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from psycopg_pool import ConnectionPool
 
 from . import config
-from .application.ask import AskService
+from .application.ask import AskService, HistoryService
 from .application.auth import AuthService
 from .application.interviews import InterviewService
 from .application.review import ContributionService
@@ -34,6 +34,7 @@ class AppServices:
     _auth: AuthService | None = field(default=None, init=False)
     _contributions: ContributionService | None = field(default=None, init=False)
     _ask: AskService | None = field(default=None, init=False)
+    _history: HistoryService | None = field(default=None, init=False)
     _interviews: InterviewService | None = field(default=None, init=False)
 
     @property
@@ -94,6 +95,12 @@ class AppServices:
         if self._ask is None:
             self._ask = AskService(self.store, self.model, self.embedder)
         return self._ask
+
+    @property
+    def history(self) -> HistoryService:
+        if self._history is None:
+            self._history = HistoryService(self.store)
+        return self._history
 
     @property
     def interviews(self) -> InterviewService:

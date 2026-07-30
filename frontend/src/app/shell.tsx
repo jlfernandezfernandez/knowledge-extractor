@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import { BookOpenIcon, HistoryIcon, LogOutIcon, MenuIcon, MessageCircleQuestionIcon, SettingsIcon, UsersRoundIcon } from "lucide-react";
@@ -11,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { AuthenticatedUser } from "./router";
@@ -33,7 +34,7 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function Navigation({ mobile = false }: { mobile?: boolean }) {
+function Navigation({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const { t } = useTranslation();
 
   return (
@@ -43,6 +44,7 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
           <NavLink
             to={to}
             end={to === "/"}
+            onClick={onNavigate}
             className={({ isActive }) =>
               cn(
                 "flex h-9 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
@@ -55,12 +57,6 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
             <span className={mobile ? "" : "sr-only"}>{t(`nav.${key}`)}</span>
           </NavLink>
         );
-
-        if (mobile) {
-          return (
-            <SheetClose key={to} render={link} />
-          );
-        }
 
         return (
           <Tooltip key={to}>
@@ -75,6 +71,7 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
 
 export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
   const { t } = useTranslation();
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
 
   return (
     <TooltipProvider>
@@ -109,7 +106,7 @@ export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout
 
         <div className="min-w-0">
           <header className="flex h-14 items-center gap-3 border-b px-4 md:hidden">
-            <Sheet>
+            <Sheet open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
               <SheetTrigger render={<Button aria-label={t("shell.openNavigation")} variant="ghost" size="icon" />}>
                 <MenuIcon aria-hidden="true" />
               </SheetTrigger>
@@ -118,7 +115,7 @@ export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout
                   <SheetTitle className="sr-only">{t("shell.primaryNavigation")}</SheetTitle>
                   <Brand label={t("app.name")} />
                 </SheetHeader>
-                <Navigation mobile />
+                <Navigation mobile onNavigate={() => setMobileNavigationOpen(false)} />
               </SheetContent>
             </Sheet>
             <NavLink to="/" aria-label={t("app.name")}>

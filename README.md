@@ -10,6 +10,8 @@ pretending that an LLM is the source of truth: authentication, human approval,
 resumable workflows, cited retrieval, browser tests, and one-command local
 startup all fit in one approachable codebase.
 
+![Knowli home](docs/assets/knowli-home.png)
+
 ## What it does
 
 - Lets registered users capture a contribution by typing or dictating.

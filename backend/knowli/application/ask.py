@@ -72,3 +72,20 @@ class AskService:
             "contribution_id": claim.contribution_id,
             "contribution_created_at": claim.contribution_created_at,
         }
+
+
+class HistoryService:
+    """Read-only history projection that does not require an LLM configuration."""
+
+    def __init__(self, store: ContributionStore) -> None:
+        self._store = store
+
+    def history(self, cursor: str | None, limit: int) -> dict:
+        try:
+            items, next_cursor = self._store.list_history(cursor, limit)
+        except ValueError as error:
+            raise InvalidHistoryCursor("invalid history cursor") from error
+        return {
+            "items": [asdict(item) for item in items],
+            "next_cursor": next_cursor,
+        }
