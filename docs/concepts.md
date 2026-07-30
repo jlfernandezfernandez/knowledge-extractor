@@ -177,11 +177,9 @@ written is the expensive kind of change.
 Two details fall out of it and are worth knowing:
 
 - **An unknown slug is an error everywhere**, never a silent fallback to the
-  default — a 404 over HTTP, the same message handed straight to the caller over
-  MCP and A2A. An error costs a caller one retry; a fallback costs someone a
-  wrong answer months later with no way to see where it came from. The message
-  lists the slugs that do exist, because the caller is often an agent that has
-  to pick again.
+  default. An error costs a caller one retry; a fallback costs someone a wrong
+  answer months later with no way to see where it came from. The message lists
+  the slugs that do exist so a person can correct the request.
 - **The slug is derived from the name, and folding is the whole job.** "Kitchen
   Returns", "kitchen returns" and "Kitchen  Returns!" have to collapse to one
   knowledge base, accents included, or they quietly become three that look
@@ -217,7 +215,7 @@ extract ──► confirm ──┬─► detect ──► resolve ──► com
 Consequences worth naming out loud:
 
 - A review survives a server restart, a laptop closing, a week.
-- An agent can start a review over MCP and a human finishes it in the browser.
+- A person can return to a paused review in the browser and finish it later.
 - The `clarify` edge is possible *because* it is a graph: answering the model's
   open questions routes **back** to extraction with extra context, instead of
   moving forward. A chain would have to be re-run from scratch.

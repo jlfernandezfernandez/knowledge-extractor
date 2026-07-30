@@ -7,6 +7,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
 from ... import wiring
+from ...application.auth import SessionExpired
+from .auth import require_user
 
 router = APIRouter(tags=["capture"])
 
@@ -22,6 +24,17 @@ async def transcribe_live(websocket: WebSocket) -> None:
     Decoding blocks, so it runs in a worker thread — otherwise a long segment
     would stall the event loop and stop the socket draining.
     """
+    try:
+        require_user(websocket)
+    except SessionExpired:
+        await websocket.send_denial_response(
+            JSONResponse(
+                status_code=401,
+                content={"code": "unauthenticated", "message": "sign in required"},
+            )
+        )
+        return
+
     if not wiring.speech_available():
         await websocket.send_denial_response(
             JSONResponse(

@@ -39,11 +39,6 @@ approved, and cite the exact claims they used. The sidebar is the knowledge
 bases and your own recent captures, so a review parked on a gate is one click
 from being finished instead of invisible.
 
-Other agents get the same surface. It speaks **A2A** (agent-to-agent) and
-**MCP** (model-to-tools), so a coding assistant or another team's agent can
-search and ask — and can *propose* knowledge, which opens a review for a human
-rather than writing to the store.
-
 ---
 
 ## Why this is different from "dump the docs into a vector DB"
@@ -81,7 +76,6 @@ teams actually run in production in 2026.
 | Frontend | **React 19 + TypeScript + Vite + Tailwind v4 + shadcn/ui** (on Base UI) | The default enterprise SPA stack. Components you own rather than depend on, on the primitives shadcn/ui switched to in July 2026. Two panes, ChatGPT-style: knowledge bases and your recent captures on the left, the review in the main column. No SSR here on purpose — see `docs/decisions.md`. |
 | i18n | **react-i18next** (English, Spanish) | Browser-detected and remembered, with no picker cluttering the chrome. The Spanish catalogue is type-checked against the English one. |
 | Motion | **CSS + View Transitions** | No animation library — Base UI animates from data attributes and keyframes, so shadcn/ui did not bring one in either. The review is a four-slide deck; the browser cross-fades the slides itself, and CSS runs off the main thread — where you want it while an LLM response is being parsed. |
-| Agent surfaces | **A2A** (`a2a-sdk`) and **MCP** (`mcp`) | The two protocols that matter, and they are complementary rather than competing. `docs/protocols.md` explains the difference. |
 
 Everything is open source and runs on a laptop, offline, with no API key.
 
@@ -138,8 +132,6 @@ extract, 11 s to check for conflicts, 5 s to answer a question.
 ```bash
 cd backend
 uv pip install -e '.[whisper]' # use Whisper for dictation instead of Parakeet
-uv pip install -e '.[a2a]'     # knowli-a2a  → agent-to-agent server on :9999
-uv pip install -e '.[mcp]'     # knowli-mcp  → MCP server over stdio
 ```
 
 ---
@@ -153,7 +145,6 @@ rebuild this — or argue with the choices — without the code in front of you.
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | How the pieces fit, and what happens on each request |
 | [`docs/concepts.md`](docs/concepts.md) | The concepts behind it — RAG, hybrid retrieval, RRF, scoping, human-in-the-loop, checkpointing — explained so you can explain them |
-| [`docs/protocols.md`](docs/protocols.md) | A2A, MCP and the 2026 agent-interoperability landscape |
 | [`docs/local-models.md`](docs/local-models.md) | Which models fit on a laptop, and how to swap them |
 | [`docs/decisions.md`](docs/decisions.md) | What was chosen, what was rejected, and why |
 
@@ -169,7 +160,7 @@ cd backend && .venv/bin/python -m pytest    # 19 tests, no database or model nee
 
 Working end to end: capture → confirm → conflicts → commit, steppable in both
 directions, streamed progress, hybrid search and cited answers (⌘K) scoped to a
-knowledge base, English and Spanish, A2A and MCP surfaces.
+knowledge base, English and Spanish.
 
 Not yet: multimodal capture (images and files), and **users and authentication**
 — deliberately. The workspace and knowledge-base tables are there and every

@@ -16,11 +16,11 @@ from __future__ import annotations
 
 import logging
 from importlib.util import find_spec
+from typing import Any
 import urllib.request
 from pathlib import Path
 
 from ... import config
-from ...domain.ports import Transcriber
 
 log = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ def _resolve() -> tuple[str, Path] | None:
     return None
 
 
-def create() -> Transcriber:
+def create() -> Any:
     resolved = _resolve()
     if resolved is None:
         raise RuntimeError(

@@ -1,16 +1,15 @@
 # Architecture
 
 ```
-      React 19 + Vite            MCP client            another team's agent
-   (sidebar + the review)     (Claude, Cursor…)          (autonomous)
-             │                        │                        │
-             │ REST/JSON              │ stdio                  │ A2A JSON-RPC
-             ▼                        ▼                        ▼
-      ┌──────────────────────────────────────────────────────────────┐
-      │           FastAPI  ·  knowli/interfaces/http/                │
-      └───────────────┬──────────────────────────┬───────────────────┘
-                      │                          │
- ┌────────────────────▼──────────────┐  ┌────────▼───────────────────┐
+      React 19 + Vite
+   (sidebar + the review)
+             │ REST/JSON
+             ▼
+      ┌──────────────────────────────────────────────────┐
+      │       FastAPI  ·  knowli/interfaces/http/         │
+      └───────────────┬──────────────────┬───────────────┘
+                      │                  │
+ ┌────────────────────▼──────────────┐  ┌▼───────────────────────────┐
  │ LangGraph  application/review.py  │  │  Ask  application/ask.py   │
  │ the review workflow               │  │  hybrid + cite             │
  └────────────────────┬──────────────┘  └────────┬───────────────────┘
@@ -45,7 +44,7 @@ edge through the ports `domain/ports.py` declares.
 | `domain/` | The vocabulary and the rules. `claim.py` and `conflict.py` are the types everything else speaks in; `knowledge_base.py` is the container claims live in, plus the `slugify` that decides when two names are one knowledge base; `policy.py` holds the pure `plan()` and which resolution each verdict allows; `ports.py` declares what the outside world must provide. No I/O, no framework, no SQL. |
 | `application/` | `review.py` — the workflow: nodes, edges, the two `interrupt()` gates, and how the graph is assembled. `ask.py` — question answering with citations. `knowledge_bases.py` — which knowledge bases exist, which one a request means, and the recent-review listing. |
 | `infrastructure/` | The implementations. `postgres/` (`pool.py`, `repository.py`, `schema.sql`) — all SQL lives here. `llm/` — the only place that knows a provider exists: `chat_model.py` reaches the model, `prompts.py` holds what we ask it, `schemas.py` the shapes it must answer in, and `extractor.py` puts the three together behind the port. `embedding/embedder.py` — fastembed in-process or a remote `/embeddings` endpoint. `speech/` — Parakeet or Whisper behind one `transcriber.py`. |
-| `interfaces/` | The ways in. `http/` split by router — `review.py`, `knowledge.py`, `speech.py`, `health.py`, plus `sse.py` and the API DTOs in `schemas.py`. `a2a/server.py` — Agent Card and skills. `mcp/server.py` — tools over stdio. |
+| `interfaces/` | The web application boundary. `http/` is split by router — `review.py`, `speech.py`, `health.py`, plus `sse.py` and the API DTOs in `schemas.py`. |
 
 `config.py` sits above all four: environment, read once. `wiring.py` sits
 beside it as the composition root — the one file where each port meets its
@@ -142,10 +141,9 @@ GET  /api/knowledge/{id}/history
 
 Note what is **not** there: a route that lists a knowledge base. There was one,
 and nothing called it. The rail stopped listing the store when the store stopped
-being small enough to list, and agents search over MCP and A2A rather than over
-HTTP. Retrieval is `/api/ask`, search is a skill, and a paginated dump of an
+being small enough to list. Retrieval is `/api/ask`, and a paginated dump of an
 organisation's knowledge is a feature to add when somebody asks for it — along
-with the date index it would want, which went with it.
+with the date index it would want.
 
 The slug is **derived from the name, never supplied**, so what a person types
 and what a URL carries cannot disagree. Derivation folds accents and collapses
@@ -376,6 +374,5 @@ and English and Spanish catalogues detected from the browser.
 
 **The frontend has no workflow logic.** It renders whatever `stage` the backend
 reports and posts back. The state machine lives in exactly one place — the
-graph — which is what makes the deep link `/review/<id>` work: an agent opens a
-review over MCP, a human finishes it in the browser, and neither side had to
-agree on anything but the session id.
+graph — which is what makes the deep link `/review/<id>` work: a person can
+return to a paused review in the browser without reconstructing its state.

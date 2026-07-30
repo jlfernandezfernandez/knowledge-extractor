@@ -175,8 +175,8 @@ was ceremony.
 
 ### Human gates apply to agents too
 
-**Chosen.** `submit_knowledge` over MCP or A2A returns a review URL. It does not
-write.
+**Chosen.** Every contribution begins as a browser review and does not write
+until a person confirms it.
 
 **Rejected:** an "agent write" path with an audit log. Auditable garbage is
 still garbage, and the moment agents can write unattended, the store becomes the
@@ -257,7 +257,7 @@ spinning circle is the difference between "working" and "broken" to a user.
 **Also rejected:** token-level streaming — the nodes use structured output, so
 there is no prose to stream, and faking one would be theatre.
 
-Agent callers over MCP and A2A never ask for the stream, so they are unaffected.
+The browser reads this stream only while a review is actively open.
 
 ---
 
