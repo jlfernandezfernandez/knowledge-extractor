@@ -1,280 +1,192 @@
-"""The Postgres side: the knowledge store, and the catalog around it.
+"""The one PostgreSQL-backed global contribution store."""
 
-Two classes, two ports, one file — they share a pool, a row helper and a
-dialect, and splitting them would buy a second import and nothing else. The
-split that matters is the one in `domain/ports.py`: if the claims ever move to a
-vector store, `PostgresKnowledgeRepository` is what gets a sibling and
-`PostgresCatalog` is what stays exactly where it is.
+from psycopg_pool import ConnectionPool
 
-Three design points worth knowing about:
-
-1. Nothing is deleted. A claim that loses a conflict keeps its row and gets a
-   `superseded_by` pointer to the claim that replaced it. Retrieval only ever
-   looks at rows where that column is NULL, so the live view stays clean while
-   the history stays auditable.
-
-2. Retrieval is hybrid. Dense vectors find paraphrases and cross-language
-   matches; lexical full-text finds exact tokens (error codes, product names,
-   acronyms) that embeddings routinely miss. The two rankings are fused with
-   Reciprocal Rank Fusion, which needs no score calibration between the two
-   very different scales — it only uses each result's *rank*.
-
-3. Every claim query is scoped to one knowledge base. For the lexical and the
-   listing halves that is an indexed equality (see `schema.sql`). For the vector
-   half it is a filter over an approximate scan, which is why both vector
-   queries set `hnsw.iterative_scan` first.
-"""
-
-from ... import config
-from ...domain.claim import StoredClaim
-from ...domain.knowledge_base import KnowledgeBase
-from .pool import pool
-
-_HYBRID_SQL = """
-WITH semantic AS (
-    SELECT id, ROW_NUMBER() OVER (ORDER BY embedding <=> %(vec)s::vector) AS rank
-    FROM knowledge
-    WHERE superseded_by IS NULL AND knowledge_base_id = %(kb)s
-    ORDER BY embedding <=> %(vec)s::vector
-    LIMIT %(pool)s
-),
-lexical AS (
-    SELECT k.id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd(k.search, q) DESC) AS rank
-    FROM knowledge k, websearch_to_tsquery('simple', %(q)s) q
-    WHERE k.superseded_by IS NULL AND k.knowledge_base_id = %(kb)s AND k.search @@ q
-    ORDER BY ts_rank_cd(k.search, q) DESC
-    LIMIT %(pool)s
+from ...domain.claim import ClaimSearchResult, ClaimToCommit
+from ...domain.contribution import (
+    ContributionNotFound,
+    HistoryItem,
+    StaleRevision,
+    StoredContribution,
 )
-SELECT k.id, k.title, k.statement, k.tags, k.author, k.source,
-       COALESCE(1.0 / (%(rrf_k)s + s.rank), 0)
-     + COALESCE(1.0 / (%(rrf_k)s + l.rank), 0) AS score
-FROM knowledge k
-LEFT JOIN semantic s ON s.id = k.id
-LEFT JOIN lexical  l ON l.id = k.id
-WHERE s.id IS NOT NULL OR l.id IS NOT NULL
-ORDER BY score DESC
-LIMIT %(k)s
-"""
-
-# pgvector cannot index the scope alongside the vector, so a scoped ANN query is
-# a filter on top of an approximate scan. Without this, the scan visits its
-# ef_search candidates *in total* and hands back only those that happen to be in
-# this knowledge base: five neighbours asked for, two returned, and a conflict
-# detector that sees nothing and cheerfully reports no conflicts — the worst way
-# to be wrong here. Iterative scan (pgvector 0.8) keeps pulling from the index
-# until enough rows pass the filter. `strict_order` rather than `relaxed_order`
-# because both callers care about order: RRF ranks by it and `neighbours` cuts
-# by distance.
-_ITERATIVE_SCAN = "SET LOCAL hnsw.iterative_scan = strict_order"
+from .pool import pool as configured_pool
 
 
-def _rows(cur) -> list[dict]:
-    columns = [c.name for c in cur.description]
-    return [
-        {k: (str(v) if k == "id" else v) for k, v in zip(columns, row)}
-        for row in cur.fetchall()
-    ]
+class PostgresStore:
+    def __init__(self, connection_pool: ConnectionPool | None = None):
+        self._pool = connection_pool or configured_pool()
 
+    @staticmethod
+    def _stored(row: tuple) -> StoredContribution:
+        return StoredContribution(
+            id=row[0], author_id=row[1], author=row[2], kind=row[3], source=row[4],
+            raw_text=row[5], stage=row[6], revision=row[7], summary=row[8],
+            created_at=row[9], committed_at=row[10], claim_count=row[11],
+        )
 
-class PostgresKnowledgeRepository:
-    """The one implementation of `domain.ports.KnowledgeRepository`."""
+    def create_contribution(
+        self, author_id: str, raw_text: str, source: str, interview_id: str | None = None
+    ) -> StoredContribution:
+        kind = "interview" if interview_id else "voluntary"
+        with self._pool.connection() as connection:
+            contribution_id = str(connection.execute(
+                """INSERT INTO contribution
+                   (author_id, kind, interview_id, source, raw_text, stage)
+                   VALUES (%s, %s, %s, %s, %s, 'claims')
+                   RETURNING id""",
+                (author_id, kind, interview_id, source, raw_text),
+            ).fetchone()[0])
+        contribution = self.get_contribution(contribution_id)
+        assert contribution is not None
+        return contribution
 
-    # --- retrieval ------------------------------------------------------
+    def get_contribution(self, contribution_id: str) -> StoredContribution | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                """SELECT c.id::text, c.author_id::text, u.display_name, c.kind, c.source,
+                          c.raw_text, c.stage, c.revision, c.summary, c.created_at,
+                          c.committed_at, count(claim.id)
+                   FROM contribution c
+                   JOIN app_user u ON u.id = c.author_id
+                   LEFT JOIN claim ON claim.contribution_id = c.id
+                   WHERE c.id = %s
+                   GROUP BY c.id, u.display_name""",
+                (contribution_id,),
+            ).fetchone()
+        return self._stored(row) if row else None
 
-    def hybrid_search(
-        self, kb: KnowledgeBase, query: str, embedding, k: int
-    ) -> list[StoredClaim]:
-        """Semantic + lexical, fused with RRF. This is what `ask` and search use."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(_ITERATIVE_SCAN)
-            cur.execute(
-                _HYBRID_SQL,
-                {
-                    "kb": kb.id,
-                    "vec": embedding,
-                    "q": query,
-                    "pool": max(k * 4, 20),  # over-fetch per channel, then fuse
-                    "rrf_k": config.RRF_K,
-                    "k": k,
-                },
-            )
-            return [StoredClaim(**r) for r in _rows(cur)]
+    def save_review(
+        self, contribution_id: str, expected_revision: int, stage: str, summary: str
+    ) -> StoredContribution:
+        with self._pool.connection() as connection:
+            updated = connection.execute(
+                """UPDATE contribution
+                   SET stage = %s, summary = %s, revision = revision + 1, updated_at = now()
+                   WHERE id = %s AND revision = %s AND stage <> 'committed'
+                   RETURNING id""",
+                (stage, summary, contribution_id, expected_revision),
+            ).fetchone()
+        if updated is None:
+            if self.get_contribution(contribution_id) is None:
+                raise ContributionNotFound(contribution_id)
+            raise StaleRevision(contribution_id)
+        contribution = self.get_contribution(contribution_id)
+        assert contribution is not None
+        return contribution
 
-    def neighbours(
-        self, kb: KnowledgeBase, embedding, k: int, max_distance: float
-    ) -> list[StoredClaim]:
-        """Pure semantic nearest neighbours, inside one knowledge base. This is
-        what conflict detection uses: a lexical channel would surface claims that
-        merely share vocabulary, and an unscoped one would surface claims about a
-        subject this capture has nothing to do with."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(_ITERATIVE_SCAN)
-            cur.execute(
-                """
-                -- The ::vector casts are required: a plain list parameter would be
-                -- inferred as double precision[], which has no <=> operator.
-                SELECT id, title, statement, tags, author, source,
-                       embedding <=> %s::vector AS distance
-                FROM knowledge
-                WHERE superseded_by IS NULL AND knowledge_base_id = %s
-                ORDER BY embedding <=> %s::vector
-                LIMIT %s
-                """,
-                (embedding, kb.id, embedding, k),
-            )
-            rows = _rows(cur)
-        return [StoredClaim(**r) for r in rows if r["distance"] <= max_distance]
-
-    def count(self, kb: KnowledgeBase) -> int:
-        """How many live claims exist. Shown in the progress UI so "comparing
-        against 128 claims" is a real number rather than a reassuring noise."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT count(*) FROM knowledge "
-                "WHERE superseded_by IS NULL AND knowledge_base_id = %s",
-                (kb.id,),
-            )
-            return cur.fetchone()[0]
-
-    def history(self, claim_id: str) -> list[dict]:
-        """The chain of claims this one replaced, newest first."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                WITH RECURSIVE chain AS (
-                    SELECT id, title, statement, superseded_by, created_at, 0 AS depth
-                    FROM knowledge WHERE id = %s
-                    UNION ALL
-                    SELECT k.id, k.title, k.statement, k.superseded_by, k.created_at,
-                           chain.depth + 1
-                    FROM knowledge k JOIN chain ON k.superseded_by = chain.id
+    def commit_claims(
+        self, contribution_id: str, expected_revision: int, claims: list[ClaimToCommit]
+    ) -> StoredContribution:
+        with self._pool.connection() as connection:
+            contribution = connection.execute(
+                "SELECT stage, revision FROM contribution WHERE id = %s FOR UPDATE",
+                (contribution_id,),
+            ).fetchone()
+            if contribution is None:
+                raise ContributionNotFound(contribution_id)
+            if contribution[0] == "committed":
+                pass
+            elif contribution[1] != expected_revision:
+                raise StaleRevision(contribution_id)
+            else:
+                for claim in claims:
+                    claim_id = str(connection.execute(
+                        """INSERT INTO claim
+                           (contribution_id, draft_key, title, statement, tags, embedding)
+                           VALUES (%s, %s, %s, %s, %s, %s::vector)
+                           ON CONFLICT (contribution_id, draft_key) DO UPDATE
+                           SET title = EXCLUDED.title, statement = EXCLUDED.statement,
+                               tags = EXCLUDED.tags, embedding = EXCLUDED.embedding
+                           RETURNING id""",
+                        (
+                            contribution_id, claim.draft_key, claim.title, claim.statement,
+                            list(claim.tags), list(claim.embedding),
+                        ),
+                    ).fetchone()[0])
+                    if claim.supersedes:
+                        connection.execute(
+                            "UPDATE claim SET superseded_by = %s WHERE id = ANY(%s::uuid[])",
+                            (claim_id, list(claim.supersedes)),
+                        )
+                connection.execute(
+                    """UPDATE contribution
+                       SET stage = 'committed', revision = revision + 1,
+                           committed_at = now(), updated_at = now()
+                       WHERE id = %s""",
+                    (contribution_id,),
                 )
-                SELECT id, title, statement, created_at, depth FROM chain ORDER BY depth
-                """,
-                (claim_id,),
+                connection.execute(
+                    """UPDATE interview SET status = 'completed', completed_at = now()
+                       WHERE id = (SELECT interview_id FROM contribution WHERE id = %s)""",
+                    (contribution_id,),
+                )
+        stored = self.get_contribution(contribution_id)
+        assert stored is not None
+        return stored
+
+    def search_claims(
+        self, query_text: str, query_embedding: list[float], limit: int
+    ) -> list[ClaimSearchResult]:
+        candidate_limit = max(limit * 4, 20)
+        with self._pool.connection() as connection:
+            rows = connection.execute(
+                """WITH semantic AS (
+                       SELECT id, row_number() OVER (ORDER BY embedding <=> %s::vector) AS rank
+                       FROM claim
+                       WHERE superseded_by IS NULL
+                       ORDER BY embedding <=> %s::vector
+                       LIMIT %s
+                   ), lexical AS (
+                       SELECT claim.id,
+                              row_number() OVER (ORDER BY ts_rank_cd(search_vector, query) DESC) AS rank
+                       FROM claim, websearch_to_tsquery('simple', %s) query
+                       WHERE superseded_by IS NULL AND search_vector @@ query
+                       ORDER BY ts_rank_cd(search_vector, query) DESC
+                       LIMIT %s
+                   )
+                   SELECT claim.id::text, claim.title, claim.statement, claim.tags,
+                          author.display_name, contribution.id::text, contribution.created_at,
+                          COALESCE(1.0 / (60 + semantic.rank), 0)
+                        + COALESCE(1.0 / (60 + lexical.rank), 0) AS score
+                   FROM claim
+                   JOIN contribution ON contribution.id = claim.contribution_id
+                   JOIN app_user author ON author.id = contribution.author_id
+                   LEFT JOIN semantic ON semantic.id = claim.id
+                   LEFT JOIN lexical ON lexical.id = claim.id
+                   WHERE semantic.id IS NOT NULL OR lexical.id IS NOT NULL
+                   ORDER BY score DESC, claim.id
+                   LIMIT %s""",
+                (query_embedding, query_embedding, candidate_limit, query_text, candidate_limit, limit),
+            ).fetchall()
+        return [
+            ClaimSearchResult(
+                id=row[0], title=row[1], statement=row[2], tags=tuple(row[3]), author=row[4],
+                contribution_id=row[5], contribution_created_at=row[6], score=float(row[7]),
             )
-            return _rows(cur)
+            for row in rows
+        ]
 
-    # --- writes ---------------------------------------------------------
-
-    def insert(
-        self, kb: KnowledgeBase, title: str, statement: str, tags, embedding, author, source
-    ) -> str:
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO knowledge
-                    (knowledge_base_id, title, statement, tags, author, source, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
-                """,
-                (kb.id, title, statement, list(tags or []), author, source, embedding),
+    def list_history(self, cursor: str | None, limit: int) -> tuple[list[HistoryItem], str | None]:
+        with self._pool.connection() as connection:
+            rows = connection.execute(
+                """SELECT contribution.id::text, author.display_name, contribution.source,
+                          contribution.summary, count(claim.id), contribution.created_at
+                   FROM contribution
+                   JOIN app_user author ON author.id = contribution.author_id
+                   LEFT JOIN claim ON claim.contribution_id = contribution.id
+                   WHERE contribution.stage = 'committed'
+                     AND (%s::uuid IS NULL OR (contribution.created_at, contribution.id) <
+                         (SELECT created_at, id FROM contribution WHERE id = %s::uuid))
+                   GROUP BY contribution.id, author.display_name
+                   ORDER BY contribution.created_at DESC, contribution.id DESC
+                   LIMIT %s""",
+                (cursor, cursor, limit + 1),
+            ).fetchall()
+        items = [
+            HistoryItem(
+                contribution_id=row[0], author=row[1], source=row[2], summary=row[3],
+                claim_count=row[4], created_at=row[5],
             )
-            return str(cur.fetchone()[0])
-
-    def supersede(self, old_id: str, new_id: str) -> None:
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                "UPDATE knowledge SET superseded_by = %s WHERE id = %s", (new_id, old_id)
-            )
-
-
-class PostgresCatalog:
-    """The one implementation of `domain.ports.Catalog`.
-
-    Everything here is scoped to `config.DEFAULT_WORKSPACE`, the only workspace
-    anything can currently name. See the port for why that constant lives down
-    here rather than being threaded through every signature.
-    """
-
-    # --- knowledge bases ------------------------------------------------
-
-    def knowledge_bases(self) -> list[KnowledgeBase]:
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT kb.id, kb.slug, kb.name,
-                       count(k.id) FILTER (WHERE k.superseded_by IS NULL) AS claims
-                FROM knowledge_base kb
-                JOIN workspace w ON w.id = kb.workspace_id AND w.slug = %s
-                LEFT JOIN knowledge k ON k.knowledge_base_id = kb.id
-                GROUP BY kb.id, kb.slug, kb.name, kb.created_at
-                ORDER BY kb.created_at
-                """,
-                (config.DEFAULT_WORKSPACE,),
-            )
-            return [KnowledgeBase(**r) for r in _rows(cur)]
-
-    def knowledge_base(self, slug: str) -> KnowledgeBase | None:
-        """No claim count here, on purpose: this runs on every capture, every ask
-        and every state read, and counting a table to decide where to write into
-        it would be a scan per request for a number nobody asked for."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT kb.id, kb.slug, kb.name
-                FROM knowledge_base kb
-                JOIN workspace w ON w.id = kb.workspace_id AND w.slug = %s
-                WHERE kb.slug = %s
-                """,
-                (config.DEFAULT_WORKSPACE, slug),
-            )
-            rows = _rows(cur)
-        return KnowledgeBase(**rows[0]) if rows else None
-
-    def create_knowledge_base(self, slug: str, name: str) -> KnowledgeBase | None:
-        """`ON CONFLICT DO NOTHING RETURNING` turns a collision into an empty
-        result instead of an exception, so the unique index stays the single
-        arbiter of who got the name and no layer has to catch a driver error to
-        find out who lost."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO knowledge_base (workspace_id, slug, name)
-                SELECT w.id, %s, %s FROM workspace w WHERE w.slug = %s
-                ON CONFLICT (workspace_id, slug) DO NOTHING
-                RETURNING id, slug, name
-                """,
-                (slug, name, config.DEFAULT_WORKSPACE),
-            )
-            rows = _rows(cur)
-        return KnowledgeBase(**rows[0]) if rows else None
-
-    # --- the review listing ---------------------------------------------
-
-    def record_session(
-        self, session_id: str, kb: KnowledgeBase, author: str | None, stage: str, summary: str
-    ) -> None:
-        """The `WHERE` on the upsert is what stops a polling UI reshuffling its
-        own list: a read that finds the session exactly where it left it writes
-        nothing, so `updated_at` only moves when the review actually did."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO review_session (id, knowledge_base_id, author, stage, summary)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE
-                   SET stage = EXCLUDED.stage,
-                       summary = EXCLUDED.summary,
-                       updated_at = now()
-                 WHERE review_session.stage IS DISTINCT FROM EXCLUDED.stage
-                    OR review_session.summary IS DISTINCT FROM EXCLUDED.summary
-                """,
-                (session_id, kb.id, author, stage, summary),
-            )
-
-    def sessions(self, kb: KnowledgeBase, limit: int) -> list[dict]:
-        """Ordered by `created_at`, not `updated_at`: this is a list of captures
-        in the order they were made, and a review someone came back to a day
-        later should not jump over the three they have started since."""
-        with pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT s.id::text AS session_id, s.stage, s.summary, s.author,
-                       %s AS knowledge_base, s.created_at, s.updated_at
-                FROM review_session s
-                WHERE s.knowledge_base_id = %s
-                ORDER BY s.created_at DESC LIMIT %s
-                """,
-                (kb.slug, kb.id, limit),
-            )
-            return _rows(cur)
+            for row in rows[:limit]
+        ]
+        return items, rows[limit][0] if len(rows) > limit else None

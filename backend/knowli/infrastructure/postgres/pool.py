@@ -1,8 +1,4 @@
-"""Connection pools and the database migration bootstrap.
-
-Two pools, because LangGraph's checkpointer needs different connection settings
-from ours and mixing them breaks one or the other.
-"""
+"""Connection pools and the database migration bootstrap."""
 
 import psycopg
 from pgvector.psycopg import register_vector

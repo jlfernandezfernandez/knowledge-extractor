@@ -48,10 +48,10 @@ def _versions(pool: ConnectionPool) -> list[int]:
         )]
 
 
-def test_fresh_database_reaches_version_3(database: ConnectionPool):
+def test_fresh_database_reaches_version_4(database: ConnectionPool):
     run_migrations(database)
 
-    assert _versions(database) == [1, 2, 3]
+    assert _versions(database) == [1, 2, 3, 4]
     with database.connection() as connection:
         tables = {row[0] for row in connection.execute(
             "SELECT tablename FROM pg_tables WHERE schemaname = current_schema()"
@@ -197,7 +197,7 @@ def test_migration_runner_is_idempotent(database: ConnectionPool):
     run_migrations(database)
     run_migrations(database)
 
-    assert _versions(database) == [1, 2, 3]
+    assert _versions(database) == [1, 2, 3, 4]
 
 
 def test_knowledge_only_legacy_imports_without_review_tables(database: ConnectionPool):
