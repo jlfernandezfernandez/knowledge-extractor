@@ -88,7 +88,10 @@ def _client(service, user_id="author-1"):
     app.dependency_overrides[auth.require_user] = lambda: User(
         id=user_id, email=f"{user_id}@example.test", display_name=user_id
     )
-    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver")
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://testserver",
+    )
 
 
 @pytest.mark.anyio
@@ -156,3 +159,18 @@ async def test_sse_reconnect_sends_only_a_newer_revision(service):
     assert isinstance(event, ServerSentEvent)
     assert (event.id, event.event, event.data["revision"]) == ("1", "review", 1)
     assert heartbeat.comment == "heartbeat"
+
+
+@pytest.mark.anyio
+async def test_sse_checks_ownership_before_starting_the_stream(service):
+    async with _client(service, "author-2") as client:
+        unauthorized = await client.get(
+            f"/api/contributions/{service.state['id']}/events"
+        )
+    async with _client(service) as client:
+        missing = await client.get(
+            "/api/contributions/00000000-0000-0000-0000-000000000099/events"
+        )
+
+    assert unauthorized.status_code == 404
+    assert missing.status_code == 404

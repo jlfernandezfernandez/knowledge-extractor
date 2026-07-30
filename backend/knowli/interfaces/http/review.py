@@ -28,6 +28,17 @@ def get_contribution_service() -> ContributionService:
 ContributionServiceDep = Annotated[ContributionService, Depends(get_contribution_service)]
 
 
+def require_owned_contribution(
+    id: str,
+    user: CurrentUserDep,
+    service: ContributionServiceDep,
+) -> dict:
+    return service.get(user.id, id)
+
+
+OwnedContributionDep = Annotated[dict, Depends(require_owned_contribution)]
+
+
 @router.post("", response_model=ContributionResponse, status_code=status.HTTP_201_CREATED)
 def capture(
     body: ContributionCaptureRequest,
@@ -98,14 +109,15 @@ def back(
     return service.back(user.id, contribution_id, body.revision)
 
 
-@router.get("/{contribution_id}/events", response_class=EventSourceResponse)
+@router.get("/{id}/events", response_class=EventSourceResponse)
 async def events(
-    contribution_id: str,
+    id: str,
     user: CurrentUserDep,
     service: ContributionServiceDep,
+    owned: OwnedContributionDep,
     last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
 ) -> AsyncIterable[ServerSentEvent]:
     async for event in review_events(
-        service, user.id, contribution_id, last_event_id=last_event_id
+        service, user.id, id, last_event_id=last_event_id
     ):
         yield event

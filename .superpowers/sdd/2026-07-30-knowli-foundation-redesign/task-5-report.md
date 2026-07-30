@@ -57,3 +57,27 @@ replaced the old session/knowledge-base HTTP surface with authenticated
   review service tests exercise the real graph and transaction port contract,
   while the already-approved PostgreSQL transaction implementation remains
   unchanged.
+
+## Review round 1/5
+
+### RED
+
+- SSE ownership test returned HTTP 200 because `service.get()` first ran inside
+  the async generator, after response headers had started.
+- Calling the documented service methods with `id=` raised `TypeError`.
+- Unknown and duplicate resolution keys were silently accepted; `keep_old`
+  could consequently remove a draft that had no conflict.
+- The interview test checked stored `raw_text` but did not observe the fake
+  model's actual extraction input.
+
+### GREEN
+
+- Added a FastAPI dependency preflight for the SSE route, so inaccessible and
+  missing contributions resolve to 404 before `EventSourceResponse` starts.
+- Renamed the public `confirm_claims`, `resolve_conflicts`, and `commit`
+  identifier parameter to `id` and covered keyword calls.
+- Resolution validation now rejects duplicate keys and any key outside the set
+  of actually conflicted drafts, both before graph resumption and defensively
+  in `prepare_commit`.
+- The fake model records extraction inputs; the interview test proves it
+  receives only the assignee's raw answer and never requester brief text.

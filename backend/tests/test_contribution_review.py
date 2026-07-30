@@ -6,7 +6,11 @@ from datetime import UTC, datetime
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
-from knowli.application.review import ContributionService, ContributionUnavailable
+from knowli.application.review import (
+    ContributionService,
+    ContributionUnavailable,
+    InvalidReview,
+)
 from knowli.domain.claim import ClaimDraft, ClaimSearchResult, ClaimToCommit
 from knowli.domain.contribution import (
     ContributionNotFound,
@@ -85,7 +89,11 @@ class MemoryContributionStore:
 
 
 class FixedModel:
+    def __init__(self):
+        self.extracted_texts: list[str] = []
+
     def extract_claims(self, raw_text):
+        self.extracted_texts.append(raw_text)
         return [
             ClaimDraft(
                 draft_key="model-key-must-be-ignored",
@@ -119,11 +127,16 @@ class FixedEmbedder:
 @pytest.fixture
 def service():
     store = MemoryContributionStore()
-    return ContributionService(store, FixedModel(), FixedEmbedder(), InMemorySaver()), store
+    model = FixedModel()
+    return (
+        ContributionService(store, model, FixedEmbedder(), InMemorySaver()),
+        store,
+        model,
+    )
 
 
 def test_capture_review_conflicts_and_commit_are_resumable(service):
-    review, store = service
+    review, store, _ = service
     store.candidates = [
         ClaimSearchResult(
             id="11111111-1111-1111-1111-111111111111",
@@ -164,7 +177,7 @@ def test_capture_review_conflicts_and_commit_are_resumable(service):
 
 
 def test_edit_and_rewind_preserve_uuid_key_derived_from_position(service):
-    review, _ = service
+    review, _, _ = service
     captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
     original_key = captured["claims"][0]["draft_key"]
     edited = [{**captured["claims"][0], "statement": "Deploy on Wednesdays."}]
@@ -181,7 +194,7 @@ def test_edit_and_rewind_preserve_uuid_key_derived_from_position(service):
 
 
 def test_stale_revision_and_non_author_are_rejected(service):
-    review, _ = service
+    review, _, _ = service
     captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
 
     with pytest.raises(StaleRevision):
@@ -191,7 +204,7 @@ def test_stale_revision_and_non_author_are_rejected(service):
 
 
 def test_commit_retry_returns_the_same_result_without_duplicate_claims(service):
-    review, store = service
+    review, store, _ = service
     captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
     conflicts = review.confirm_claims(
         "author-1", captured["id"], captured["revision"], captured["claims"]
@@ -208,7 +221,8 @@ def test_commit_retry_returns_the_same_result_without_duplicate_claims(service):
 
 
 def test_interview_brief_is_not_added_to_extractable_text(service):
-    review, _ = service
+    review, _, model = service
+    brief = "Extract the quarterly target from this requester brief."
 
     captured = review.capture(
         "author-1",
@@ -219,3 +233,103 @@ def test_interview_brief_is_not_added_to_extractable_text(service):
 
     assert captured["raw_text"] == "My answer only."
     assert captured["kind"] == "interview"
+    assert model.extracted_texts == ["My answer only."]
+    assert brief not in model.extracted_texts[0]
+
+
+def test_public_review_methods_accept_the_documented_id_keyword(service):
+    review, _, _ = service
+    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+
+    confirmed = review.confirm_claims(
+        user_id="author-1",
+        id=captured["id"],
+        revision=captured["revision"],
+        claims=captured["claims"],
+    )
+    ready = review.resolve_conflicts(
+        user_id="author-1",
+        id=captured["id"],
+        revision=confirmed["revision"],
+        resolutions=[],
+    )
+    committed = review.commit(
+        user_id="author-1",
+        id=captured["id"],
+        revision=ready["revision"],
+    )
+
+    assert committed["stage"] == "committed"
+
+
+def _review_waiting_on_a_conflict(service):
+    review, store, _ = service
+    store.candidates = [
+        ClaimSearchResult(
+            id="11111111-1111-1111-1111-111111111111",
+            title="Old deployments",
+            statement="Deploy on Fridays.",
+            tags=("release",),
+            author="Ada",
+            contribution_id="22222222-2222-2222-2222-222222222222",
+            contribution_created_at=datetime(2026, 7, 1, tzinfo=UTC),
+            score=0.9,
+        )
+    ]
+    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    return review, review.confirm_claims(
+        "author-1", captured["id"], captured["revision"], captured["claims"]
+    )
+
+
+def test_conflict_resolutions_reject_unknown_draft_keys(service):
+    review, conflicted = _review_waiting_on_a_conflict(service)
+    draft_key = conflicted["claims"][0]["draft_key"]
+
+    with pytest.raises(InvalidReview, match="conflicted draft"):
+        review.resolve_conflicts(
+            "author-1",
+            conflicted["id"],
+            conflicted["revision"],
+            [
+                {"claim_draft_key": draft_key, "action": "keep_both"},
+                {"claim_draft_key": "not-a-conflicted-draft", "action": "keep_old"},
+            ],
+        )
+
+
+def test_conflict_resolutions_reject_duplicate_draft_keys(service):
+    review, conflicted = _review_waiting_on_a_conflict(service)
+    draft_key = conflicted["claims"][0]["draft_key"]
+
+    with pytest.raises(InvalidReview, match="duplicate resolution"):
+        review.resolve_conflicts(
+            "author-1",
+            conflicted["id"],
+            conflicted["revision"],
+            [
+                {"claim_draft_key": draft_key, "action": "keep_new"},
+                {"claim_draft_key": draft_key, "action": "keep_old"},
+            ],
+        )
+
+
+def test_keep_old_cannot_remove_a_conflict_free_draft(service):
+    review, _, _ = service
+    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    confirmed = review.confirm_claims(
+        "author-1", captured["id"], captured["revision"], captured["claims"]
+    )
+
+    with pytest.raises(InvalidReview, match="conflicted draft"):
+        review.resolve_conflicts(
+            "author-1",
+            confirmed["id"],
+            confirmed["revision"],
+            [
+                {
+                    "claim_draft_key": confirmed["claims"][0]["draft_key"],
+                    "action": "keep_old",
+                }
+            ],
+        )

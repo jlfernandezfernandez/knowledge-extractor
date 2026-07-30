@@ -138,9 +138,14 @@ class ContributionService:
         return {"conflicts": conflicts}
 
     def _prepare_commit(self, state: ReviewState) -> dict[str, Any]:
-        resolutions = {
-            resolution["claim_draft_key"]: ConflictResolution.model_validate(resolution)
+        parsed_resolutions = [
+            ConflictResolution.model_validate(resolution)
             for resolution in state.get("resolutions", [])
+        ]
+        self._validate_resolutions(parsed_resolutions, state.get("conflicts", []))
+        resolutions = {
+            resolution.claim_draft_key: resolution
+            for resolution in parsed_resolutions
         }
         conflicts_by_draft: dict[str, list[dict[str, Any]]] = {}
         for conflict in state.get("conflicts", []):
@@ -206,6 +211,18 @@ class ContributionService:
         if contribution.revision != revision:
             raise StaleRevision(contribution.id)
 
+    @staticmethod
+    def _validate_resolutions(
+        resolutions: list[ConflictResolution],
+        conflicts: list[dict[str, Any]],
+    ) -> None:
+        keys = [resolution.claim_draft_key for resolution in resolutions]
+        if len(keys) != len(set(keys)):
+            raise InvalidReview("duplicate resolution for a conflicted draft")
+        conflicted_keys = {conflict["claim_draft_key"] for conflict in conflicts}
+        if set(keys) - conflicted_keys:
+            raise InvalidReview("every resolution must target a conflicted draft")
+
     def _values(self, contribution_id: str) -> ReviewState:
         snapshot = self._graph.get_state(self._config(contribution_id))
         return dict(snapshot.values)
@@ -255,78 +272,79 @@ class ContributionService:
     def confirm_claims(
         self,
         user_id: str,
-        contribution_id: str,
+        id: str,
         revision: int,
         claims: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        contribution = self._owned(user_id, contribution_id)
+        contribution = self._owned(user_id, id)
         self._expect_revision(contribution, revision)
         if contribution.stage != "claims":
             raise ReviewStageError(f"contribution is at stage {contribution.stage}")
-        current_keys = {item["draft_key"] for item in self._values(contribution_id)["claims"]}
+        current_keys = {item["draft_key"] for item in self._values(id)["claims"]}
         edited = [ClaimDraft.model_validate(item) for item in claims]
         edited_keys = [item.draft_key for item in edited]
         if len(edited_keys) != len(set(edited_keys)) or set(edited_keys) != current_keys:
             raise InvalidReview("claim draft keys must be preserved")
         self._graph.update_state(
-            self._config(contribution_id),
+            self._config(id),
             {"claims": [item.model_dump() for item in edited]},
             as_node="extract_claims",
         )
-        self._graph.invoke(None, self._config(contribution_id))
+        self._graph.invoke(None, self._config(id))
         contribution = self._store.save_review(
-            contribution_id, revision, "conflicts", contribution.summary
+            id, revision, "conflicts", contribution.summary
         )
         self._graph.update_state(
-            self._config(contribution_id), {"revision": contribution.revision}
+            self._config(id), {"revision": contribution.revision}
         )
         return self._response(contribution)
 
     def resolve_conflicts(
         self,
         user_id: str,
-        contribution_id: str,
+        id: str,
         revision: int,
         resolutions: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        contribution = self._owned(user_id, contribution_id)
+        contribution = self._owned(user_id, id)
         self._expect_revision(contribution, revision)
         if contribution.stage != "conflicts":
             raise ReviewStageError(f"contribution is at stage {contribution.stage}")
         parsed = [ConflictResolution.model_validate(item) for item in resolutions]
+        self._validate_resolutions(parsed, self._values(id).get("conflicts", []))
         self._graph.update_state(
-            self._config(contribution_id),
+            self._config(id),
             {
                 "resolutions": [item.model_dump() for item in parsed],
                 "commit_requested": False,
             },
             as_node="find_conflicts",
         )
-        self._graph.invoke(None, self._config(contribution_id))
+        self._graph.invoke(None, self._config(id))
         contribution = self._store.save_review(
-            contribution_id, revision, "commit", contribution.summary
+            id, revision, "commit", contribution.summary
         )
         self._graph.update_state(
-            self._config(contribution_id), {"revision": contribution.revision}
+            self._config(id), {"revision": contribution.revision}
         )
         return self._response(contribution)
 
     def commit(
-        self, user_id: str, contribution_id: str, revision: int
+        self, user_id: str, id: str, revision: int
     ) -> dict[str, Any]:
-        contribution = self._owned(user_id, contribution_id)
+        contribution = self._owned(user_id, id)
         if contribution.stage == "committed" and contribution.revision == revision + 1:
             return self._response(contribution)
         self._expect_revision(contribution, revision)
         if contribution.stage != "commit":
             raise ReviewStageError(f"contribution is at stage {contribution.stage}")
         self._graph.update_state(
-            self._config(contribution_id),
+            self._config(id),
             {"revision": revision, "commit_requested": True},
             as_node="prepare_commit",
         )
-        self._graph.invoke(None, self._config(contribution_id))
-        return self._response(self._owned(user_id, contribution_id))
+        self._graph.invoke(None, self._config(id))
+        return self._response(self._owned(user_id, id))
 
     def back(
         self, user_id: str, contribution_id: str, revision: int
