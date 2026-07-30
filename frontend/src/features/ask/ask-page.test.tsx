@@ -72,6 +72,19 @@ describe("ask", () => {
     expect(screen.getByText("Jul 29, 2026")).toBeInTheDocument();
   });
 
+  it("formats citation provenance in the selected language", async () => {
+    await i18n.changeLanguage("es");
+    vi.mocked(fetch).mockResolvedValueOnce(response({ answer: "Despliega el viernes.", citations: [citation], sufficient_evidence: true }));
+    renderPage();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Pregunta" }), { target: { value: "¿Cuándo desplegamos?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preguntar" }));
+
+    expect(await screen.findByText("Despliega el viernes.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Friday deployments" }));
+    expect(screen.getByText(new Intl.DateTimeFormat("es", { dateStyle: "medium" }).format(new Date(citation.contribution_created_at)))).toBeInTheDocument();
+  });
+
   it("marks an answer without sufficient evidence", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ answer: "I do not have enough evidence.", citations: [], sufficient_evidence: false }));
     renderPage();

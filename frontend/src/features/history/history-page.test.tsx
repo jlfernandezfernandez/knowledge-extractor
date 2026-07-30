@@ -63,6 +63,14 @@ describe("history", () => {
     expect(screen.getByText("2 claims")).toBeInTheDocument();
   });
 
+  it("formats contribution dates in the selected language", async () => {
+    await i18n.changeLanguage("es");
+    vi.mocked(fetch).mockResolvedValueOnce(response({ items: [firstItem], next_cursor: null }));
+    renderPage();
+
+    expect(await screen.findByText(new Intl.DateTimeFormat("es", { dateStyle: "medium" }).format(new Date(firstItem.created_at)))).toBeInTheDocument();
+  });
+
   it("shows an empty state when there is no contribution history", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ items: [], next_cursor: null }));
     renderPage();

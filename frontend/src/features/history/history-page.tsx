@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { historyApi, type HistoryItem } from "./api";
 
 function HistoryCard({ item }: { item: HistoryItem }) {
-  const { t } = useTranslation();
-  const date = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(item.created_at));
+  const { t, i18n } = useTranslation();
+  const date = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "medium" }).format(new Date(item.created_at));
 
   return (
     <Card>

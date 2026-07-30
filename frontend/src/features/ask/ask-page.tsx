@@ -9,8 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { askApi, type AskResponse, type Citation } from "./api";
 
 function CitationCard({ citation }: { citation: Citation }) {
+  const { i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const date = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(citation.contribution_created_at));
+  const date = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "medium" }).format(new Date(citation.contribution_created_at));
 
   return (
     <Card size="sm">
