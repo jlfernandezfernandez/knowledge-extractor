@@ -22,7 +22,15 @@ function renderRoute(path: string, authenticated = true) {
 describe("application router", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+    vi.stubGlobal("EventSource", class { close() {} addEventListener() {} });
+    vi.stubGlobal("fetch", vi.fn((input: string) => {
+      if (input.includes("/api/auth/me")) return Promise.resolve(new Response("{}", { status: 401 }));
+      if (input.includes("/api/interviews")) return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+      if (input.includes("/api/contributions/")) return Promise.resolve(new Response(JSON.stringify({
+        id: "review-123", author_id: "user-1", author: "Ada Lovelace", kind: "contribution", source: "text", raw_text: "A fact", stage: "claims", revision: 1, summary: "A fact", created_at: "2026-07-30T08:00:00Z", committed_at: null, claim_count: 0, claims: [], conflicts: [],
+      })));
+      return Promise.resolve(new Response("{}", { status: 401 }));
+    }));
   });
 
   afterEach(() => {
@@ -30,17 +38,17 @@ describe("application router", () => {
   });
 
   it.each([
-    ["/", "Knowledge"],
+    ["/", "Share what you know"],
     ["/ask", "Ask"],
     ["/interviews", "Interviews"],
     ["/history", "History"],
-    ["/review/review-123", "Review"],
-    ["/login", "Knowledge"],
-    ["/register", "Knowledge"],
-  ])("renders %s for an authenticated user", (path, heading) => {
+    ["/review/review-123", "Review claims"],
+    ["/login", "Share what you know"],
+    ["/register", "Share what you know"],
+  ])("renders %s for an authenticated user", async (path, heading) => {
     renderRoute(path);
 
-    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
   });
 
   it("redirects an unauthenticated visitor to sign in", () => {

@@ -1,71 +1,41 @@
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { ErrorNote } from "@/components/common/error-note";
-import type { Review } from "@/hooks/use-review";
-import type { Resolution } from "@/types/review";
-import { CaptureStep } from "./capture-step";
-import { ConfirmStep } from "./confirm-step";
-import { DoneStep } from "./done-step";
-import { Progress } from "./progress";
-import { ResolveStep } from "./resolve-step";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import type { ClaimDraft, Contribution } from "@/features/contributions/types";
 
-/**
- * Which step is on the stage.
- *
- * The steps know nothing about each other or about the graph; this picks one
- * and hands it what it needs. While a step is running, the stage shows the
- * graph's progress instead — the review has not moved yet, so neither has the
- * step it is leaving.
- */
 export function ReviewFlow({
-  review,
-  author,
-  knowledgeBase,
-  onCommitted,
+  contribution,
+  drafts,
+  busy,
+  onEdit,
+  onConfirm,
+  onResolve,
+  onCommit,
+  onBack,
 }: {
-  review: Review;
-  author: string;
-  /** Slug of the knowledge base a new capture goes into. */
-  knowledgeBase: string;
-  /** Fired once claims are written, so the rail can refetch its counts. */
-  onCommitted: () => void;
+  contribution: Contribution;
+  drafts: ClaimDraft[];
+  busy: boolean;
+  onEdit: (draftKey: string, field: "title" | "statement", value: string) => void;
+  onConfirm: () => void;
+  onResolve: () => void;
+  onCommit: () => void;
+  onBack: () => void;
 }) {
   const { t } = useTranslation();
-  const { stage, session, busy, progress, error } = review;
-
-  if (busy) {
-    return (
-      <div className="flex h-full items-center">
-        <Progress events={progress} />
-      </div>
-    );
+  if (contribution.stage === "claims") {
+    return <section aria-labelledby="review-title" className="mt-4"><h1 id="review-title" className="text-2xl font-semibold">{t("review.stages.claims")}</h1><p className="mt-2 text-muted-foreground">{contribution.summary}</p><div className="mt-6 space-y-4">{drafts.map((claim) => <article key={claim.draft_key} className="space-y-2 rounded-lg border p-4"><Textarea aria-label={t("review.claimTitle")} value={claim.title} onChange={(event) => onEdit(claim.draft_key, "title", event.target.value)} /><Textarea aria-label={t("review.claimStatement")} value={claim.statement} onChange={(event) => onEdit(claim.draft_key, "statement", event.target.value)} /></article>)}</div><ReviewActions busy={busy} primary={t("review.confirm")} onPrimary={onConfirm} onBack={onBack} /></section>;
   }
-
-  async function save(resolutions: Record<string, Resolution>) {
-    const saved = await review.resolve(resolutions);
-    if (saved && saved.committed.length > 0) {
-      toast.success(t("done.toast", { count: saved.committed.length }));
-      onCommitted();
-    }
+  if (contribution.stage === "conflicts") {
+    return <section aria-labelledby="review-title" className="mt-4"><h1 id="review-title" className="text-2xl font-semibold">{t("review.stages.conflicts")}</h1><p className="mt-2 text-muted-foreground">{contribution.summary}</p><ul className="mt-6 space-y-3">{contribution.conflicts.map((conflict) => <li key={`${conflict.claim_draft_key}-${conflict.existing_id}`} className="rounded-lg border p-4">{conflict.reason}</li>)}</ul><ReviewActions busy={busy} primary={t("review.resolve")} onPrimary={onResolve} onBack={onBack} /></section>;
   }
+  if (contribution.stage === "commit") {
+    return <section aria-labelledby="review-title" className="mt-4"><h1 id="review-title" className="text-2xl font-semibold">{t("review.stages.commit")}</h1><p className="mt-2 text-muted-foreground">{contribution.summary}</p><ReviewActions busy={busy} primary={t("review.commit")} onPrimary={onCommit} onBack={onBack} /></section>;
+  }
+  return <section aria-labelledby="review-title" className="mt-4"><h1 id="review-title" className="text-2xl font-semibold">{t("review.stages.committed")}</h1><p className="mt-2 text-muted-foreground">{contribution.summary}</p></section>;
+}
 
-  return (
-    <>
-      {!session ? (
-        <CaptureStep
-          value={review.draft}
-          onChange={review.setDraft}
-          onSubmit={() => review.start(review.draft, author, knowledgeBase)}
-          busy={busy || !knowledgeBase}
-        />
-      ) : stage === "confirm" ? (
-        <ConfirmStep session={session} busy={busy} onSubmit={review.confirm} />
-      ) : stage === "resolve" ? (
-        <ResolveStep session={session} busy={busy} onSubmit={save} />
-      ) : (
-        <DoneStep session={session} onRestart={review.reset} />
-      )}
-      <ErrorNote error={error} />
-    </>
-  );
+function ReviewActions({ busy, primary, onPrimary, onBack }: { busy: boolean; primary: string; onPrimary: () => void; onBack: () => void }) {
+  const { t } = useTranslation();
+  return <div className="mt-6 flex gap-3"><Button onClick={onPrimary} disabled={busy}>{primary}</Button><Button variant="outline" onClick={onBack} disabled={busy}>{t("review.back")}</Button></div>;
 }

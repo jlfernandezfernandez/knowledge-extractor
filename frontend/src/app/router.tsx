@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import { PageState } from "@/components/page-state";
 import { AuthScreen } from "@/features/auth/auth-screen";
 import { useAuth } from "@/features/auth/auth-provider";
+import { HomePage } from "@/features/home/home-page";
+import { InterviewsPage } from "@/features/interviews/interviews-page";
+import { ReviewPage } from "@/features/review/review-page";
 import type { AuthenticatedUser } from "@/features/auth/types";
 import { AppShell } from "./shell";
 
@@ -34,11 +37,11 @@ export function createRoutes(user: AuthenticatedUser | null, options: RouterOpti
     {
       element: <ProtectedRoute user={user} onLogout={options.onLogout} />,
       children: [
-        { path: "/", element: <RoutedPage page="knowledge" /> },
+        { path: "/", element: <HomePage /> },
         { path: "/ask", element: <RoutedPage page="ask" /> },
-        { path: "/interviews", element: <RoutedPage page="interviews" /> },
+        { path: "/interviews", element: <InterviewsPage /> },
         { path: "/history", element: <RoutedPage page="history" /> },
-        { path: "/review/:id", element: <RoutedPage page="review" /> },
+        { path: "/review/:id", element: <ReviewPage /> },
       ],
     },
     { path: "/login", element: <PublicRoute user={user} register={false} /> },
