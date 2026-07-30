@@ -25,9 +25,13 @@ class MemoryContributionStore:
         self.rows: dict[str, StoredContribution] = {}
         self.committed: dict[str, list[ClaimToCommit]] = {}
         self.candidates: list[ClaimSearchResult] = []
+        self.interviews: dict[str, dict[str, str]] = {}
+        self.contribution_interviews: dict[str, str] = {}
         self._next_id = 0
 
     def create_contribution(self, author_id, raw_text, source, interview_id=None):
+        if interview_id is not None and interview_id not in self.interviews:
+            raise ContributionNotFound(interview_id)
         self._next_id += 1
         contribution_id = f"00000000-0000-0000-0000-{self._next_id:012d}"
         row = StoredContribution(
@@ -45,6 +49,8 @@ class MemoryContributionStore:
             claim_count=0,
         )
         self.rows[row.id] = row
+        if interview_id is not None:
+            self.contribution_interviews[row.id] = interview_id
         return row
 
     def get_contribution(self, contribution_id):
@@ -221,18 +227,21 @@ def test_commit_retry_returns_the_same_result_without_duplicate_claims(service):
 
 
 def test_interview_brief_is_not_added_to_extractable_text(service):
-    review, _, model = service
+    review, store, model = service
+    interview_id = "33333333-3333-3333-3333-333333333333"
     brief = "Extract the quarterly target from this requester brief."
+    store.interviews[interview_id] = {"id": interview_id, "brief": brief}
 
     captured = review.capture(
         "author-1",
         "My answer only.",
         "interview",
-        interview_id="33333333-3333-3333-3333-333333333333",
+        interview_id=interview_id,
     )
 
     assert captured["raw_text"] == "My answer only."
     assert captured["kind"] == "interview"
+    assert store.contribution_interviews[captured["id"]] == interview_id
     assert model.extracted_texts == ["My answer only."]
     assert brief not in model.extracted_texts[0]
 
