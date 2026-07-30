@@ -18,3 +18,6 @@ dist/
 
 # Model weights are fetched on first use, never committed
 backend/models/
+
+# Local visual brainstorming artifacts
+.superpowers/
