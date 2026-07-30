@@ -5,6 +5,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ...application.auth import InvalidCredentials, InvalidRegistration, SessionExpired
+from ...application.ask import InvalidQuestion
+from ...application.interviews import InterviewUnavailable, InvalidInterview
 from ...application.review import (
     ContributionUnavailable,
     InvalidReview,
@@ -65,3 +67,15 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(InvalidReview)
     def invalid_review(_: Request, error: InvalidReview) -> JSONResponse:
         return _error(400, "invalid_review", str(error))
+
+    @app.exception_handler(InvalidQuestion)
+    def invalid_question(_: Request, error: InvalidQuestion) -> JSONResponse:
+        return _error(400, "invalid_question", str(error))
+
+    @app.exception_handler(InvalidInterview)
+    def invalid_interview(_: Request, error: InvalidInterview) -> JSONResponse:
+        return _error(400, "invalid_interview", str(error))
+
+    @app.exception_handler(InterviewUnavailable)
+    def interview_unavailable(_: Request, __: InterviewUnavailable) -> JSONResponse:
+        return _error(404, "not_found", "interview not found")

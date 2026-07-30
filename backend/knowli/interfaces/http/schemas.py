@@ -36,6 +36,66 @@ class ContributionCaptureRequest(BaseModel):
     interview_id: str | None = None
 
 
+class InterviewCreateRequest(BaseModel):
+    assignee_id: str
+    title: str
+    brief: str = ""
+
+
+class InterviewAnswerRequest(BaseModel):
+    raw_text: str
+
+
+class InterviewResponse(BaseModel):
+    id: str
+    requester_id: str
+    assignee_id: str
+    title: str
+    brief: str
+    status: str
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+
+
+class InterviewStartResponse(BaseModel):
+    interview: InterviewResponse
+    contribution_id: str
+
+
+class AskRequest(BaseModel):
+    question: str
+
+
+class CitationResponse(BaseModel):
+    id: str
+    title: str
+    statement: str
+    author: str
+    contribution_id: str
+    contribution_created_at: datetime
+
+
+class AskResponse(BaseModel):
+    answer: str
+    citations: list[CitationResponse]
+    sufficient_evidence: bool
+
+
+class HistoryItemResponse(BaseModel):
+    contribution_id: str
+    author: str
+    source: str
+    summary: str
+    claim_count: int
+    created_at: datetime
+
+
+class HistoryResponse(BaseModel):
+    items: list[HistoryItemResponse]
+    next_cursor: str | None
+
+
 class ConfirmClaimsRequest(BaseModel):
     revision: int = Field(ge=0)
     claims: list[ClaimDraft]

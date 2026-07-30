@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from . import auth, review
+from . import ask, auth, history, interviews, review
 from .errors import register_error_handlers
 
 
@@ -11,4 +11,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(auth.router)
     app.include_router(review.router)
+    app.include_router(interviews.router)
+    app.include_router(ask.router)
+    app.include_router(history.router)
     return app

@@ -7,7 +7,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from ... import config
-from ...domain.claim import ClaimDraft
+from ...domain.claim import AnswerResult, ClaimDraft
 from .prompts import ANSWER_SYSTEM, COMPARE_SYSTEM, EXTRACT_SYSTEM
 from .schemas import Answer, Comparisons, Extraction
 
@@ -55,7 +55,7 @@ class OpenAIModel:
         )
         return [comparison.model_dump() for comparison in comparisons.comparisons]
 
-    def answer(self, question: str, claims: list[dict]) -> str:
+    def answer(self, question: str, claims: list[dict[str, Any]]) -> AnswerResult:
         result = self._chat.with_structured_output(Answer).invoke(
             [
                 ("system", ANSWER_SYSTEM),
@@ -70,4 +70,4 @@ class OpenAIModel:
             ]
         )
         answer = result if isinstance(result, Answer) else Answer.model_validate(result)
-        return answer.answer
+        return AnswerResult(answer=answer.answer, cited_ids=tuple(answer.cited_ids))

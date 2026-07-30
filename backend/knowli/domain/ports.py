@@ -3,8 +3,9 @@
 from datetime import datetime
 from typing import Any, Protocol
 
-from .claim import ClaimDraft, ClaimSearchResult, ClaimToCommit, ContributionStage
+from .claim import AnswerResult, ClaimDraft, ClaimSearchResult, ClaimToCommit, ContributionStage
 from .contribution import HistoryItem, StoredContribution
+from .interview import Interview, InterviewStart, InterviewView
 from .user import User, UserCredentials
 
 
@@ -15,7 +16,7 @@ class Model(Protocol):
         self, claims: list[ClaimDraft], candidates: list[dict[str, Any]]
     ) -> list[dict[str, Any]]: ...
 
-    def answer(self, question: str, claims: list[dict[str, Any]]) -> str: ...
+    def answer(self, question: str, claims: list[dict[str, Any]]) -> AnswerResult: ...
 
 
 class Embedder(Protocol):
@@ -49,6 +50,8 @@ class SessionStore(Protocol):
 
     def get_user_credentials(self, email: str) -> UserCredentials | None: ...
 
+    def get_user_by_id(self, user_id: str) -> User | None: ...
+
     def create_session(self, user_id: str, token_hash: str, expires_at: datetime) -> None: ...
 
     def get_user_by_session(self, token_hash: str, now: datetime) -> User | None: ...
@@ -56,3 +59,17 @@ class SessionStore(Protocol):
     def delete_session(self, token_hash: str) -> None: ...
 
     def delete_user_sessions(self, user_id: str) -> None: ...
+
+
+class InterviewStore(Protocol):
+    def get_user_by_id(self, user_id: str) -> User | None: ...
+
+    def create_interview(
+        self, requester_id: str, assignee_id: str, title: str, brief: str
+    ) -> Interview: ...
+
+    def get_interview(self, interview_id: str) -> Interview | None: ...
+
+    def list_interviews(self, user_id: str, view: InterviewView) -> list[Interview]: ...
+
+    def start_interview(self, interview_id: str, assignee_id: str) -> InterviewStart | None: ...

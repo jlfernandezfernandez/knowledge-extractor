@@ -28,3 +28,4 @@ class Comparisons(BaseModel):
 
 class Answer(BaseModel):
     answer: str
+    cited_ids: list[str] = Field(default_factory=list)

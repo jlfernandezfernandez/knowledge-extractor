@@ -1,5 +1,7 @@
-"""The one PostgreSQL-backed global contribution and session store."""
+"""The one PostgreSQL-backed global contribution, interview, and session store."""
 
+import base64
+import json
 from datetime import datetime
 
 from psycopg.errors import UniqueViolation
@@ -12,6 +14,7 @@ from ...domain.contribution import (
     StaleRevision,
     StoredContribution,
 )
+from ...domain.interview import Interview, InterviewStart, InterviewView
 from ...domain.user import DuplicateEmail, User, UserCredentials
 from .pool import pool as configured_pool
 
@@ -26,6 +29,14 @@ class PostgresStore:
             id=row[0], author_id=row[1], author=row[2], kind=row[3], source=row[4],
             raw_text=row[5], stage=row[6], revision=row[7], summary=row[8],
             created_at=row[9], committed_at=row[10], claim_count=row[11],
+        )
+
+    @staticmethod
+    def _interview(row: tuple) -> Interview:
+        return Interview(
+            id=row[0], requester_id=row[1], assignee_id=row[2], title=row[3],
+            brief=row[4] or "", status=row[5], created_at=row[6], started_at=row[7],
+            completed_at=row[8],
         )
 
     def create_user(self, email: str, display_name: str, password_hash: str) -> User:
@@ -54,6 +65,13 @@ class PostgresStore:
         return UserCredentials(
             user=User(id=row[0], email=row[1], display_name=row[2]), password_hash=row[3]
         )
+
+    def get_user_by_id(self, user_id: str) -> User | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "SELECT id::text, email, display_name FROM app_user WHERE id = %s", (user_id,)
+            ).fetchone()
+        return User(id=row[0], email=row[1], display_name=row[2]) if row else None
 
     def create_session(self, user_id: str, token_hash: str, expires_at: datetime) -> None:
         with self._pool.connection() as connection:
@@ -87,16 +105,108 @@ class PostgresStore:
     ) -> StoredContribution:
         kind = "interview" if interview_id else "voluntary"
         with self._pool.connection() as connection:
-            contribution_id = str(connection.execute(
-                """INSERT INTO contribution
-                   (author_id, kind, interview_id, source, raw_text, stage)
-                   VALUES (%s, %s, %s, %s, %s, 'claims')
-                   RETURNING id""",
-                (author_id, kind, interview_id, source, raw_text),
-            ).fetchone()[0])
+            if interview_id is None:
+                contribution_id = str(connection.execute(
+                    """INSERT INTO contribution
+                       (author_id, kind, interview_id, source, raw_text, stage)
+                       VALUES (%s, %s, %s, %s, %s, 'claims')
+                       RETURNING id""",
+                    (author_id, kind, interview_id, source, raw_text),
+                ).fetchone()[0])
+            else:
+                row = connection.execute(
+                    """INSERT INTO contribution
+                       (author_id, kind, interview_id, source, raw_text, stage)
+                       VALUES (%s, 'interview', %s, %s, %s, 'claims')
+                       ON CONFLICT (interview_id) DO UPDATE
+                       SET raw_text = EXCLUDED.raw_text, updated_at = now()
+                       WHERE contribution.author_id = EXCLUDED.author_id
+                         AND contribution.raw_text = ''
+                         AND contribution.stage = 'claims'
+                       RETURNING id""",
+                    (author_id, interview_id, source, raw_text),
+                ).fetchone()
+                if row is None:
+                    raise ContributionNotFound(interview_id)
+                contribution_id = str(row[0])
         contribution = self.get_contribution(contribution_id)
         assert contribution is not None
         return contribution
+
+    def create_interview(
+        self, requester_id: str, assignee_id: str, title: str, brief: str
+    ) -> Interview:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                """INSERT INTO interview (requester_id, assignee_id, title, brief)
+                   VALUES (%s, %s, %s, %s)
+                   RETURNING id::text, requester_id::text, assignee_id::text, title, brief,
+                             status, created_at, started_at, completed_at""",
+                (requester_id, assignee_id, title, brief),
+            ).fetchone()
+        assert row is not None
+        return self._interview(row)
+
+    def get_interview(self, interview_id: str) -> Interview | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                """SELECT id::text, requester_id::text, assignee_id::text, title, brief,
+                          status, created_at, started_at, completed_at
+                   FROM interview WHERE id = %s""",
+                (interview_id,),
+            ).fetchone()
+        return self._interview(row) if row else None
+
+    def list_interviews(self, user_id: str, view: InterviewView) -> list[Interview]:
+        filters = {
+            "pending": ("assignee_id = %s AND status = 'pending'", (user_id,)),
+            "sent": ("requester_id = %s AND status <> 'completed'", (user_id,)),
+            "completed": (
+                "status = 'completed' AND (requester_id = %s OR assignee_id = %s)",
+                (user_id, user_id),
+            ),
+        }
+        clause, parameters = filters[view]
+        with self._pool.connection() as connection:
+            rows = connection.execute(
+                f"""SELECT id::text, requester_id::text, assignee_id::text, title, brief,
+                           status, created_at, started_at, completed_at
+                    FROM interview WHERE {clause} ORDER BY created_at DESC, id DESC""",
+                parameters,
+            ).fetchall()
+        return [self._interview(row) for row in rows]
+
+    def start_interview(self, interview_id: str, assignee_id: str) -> InterviewStart | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                """SELECT id::text, requester_id::text, assignee_id::text, title, brief,
+                          status, created_at, started_at, completed_at
+                   FROM interview WHERE id = %s AND assignee_id = %s FOR UPDATE""",
+                (interview_id, assignee_id),
+            ).fetchone()
+            if row is None:
+                return None
+            interview = self._interview(row)
+            if interview.status == "pending":
+                row = connection.execute(
+                    """UPDATE interview SET status = 'started', started_at = now()
+                       WHERE id = %s
+                       RETURNING id::text, requester_id::text, assignee_id::text, title, brief,
+                                 status, created_at, started_at, completed_at""",
+                    (interview_id,),
+                ).fetchone()
+                assert row is not None
+                interview = self._interview(row)
+            contribution_row = connection.execute(
+                """INSERT INTO contribution
+                   (author_id, kind, interview_id, source, raw_text, stage)
+                   VALUES (%s, 'interview', %s, 'text', '', 'claims')
+                   ON CONFLICT (interview_id) DO UPDATE SET interview_id = EXCLUDED.interview_id
+                   RETURNING id::text""",
+                (assignee_id, interview_id),
+            ).fetchone()
+            assert contribution_row is not None
+            return InterviewStart(interview, contribution_row[0])
 
     def get_contribution(self, contribution_id: str) -> StoredContribution | None:
         with self._pool.connection() as connection:
@@ -266,7 +376,27 @@ class PostgresStore:
             for row in rows
         ]
 
+    @staticmethod
+    def _decode_history_cursor(cursor: str | None) -> tuple[datetime | None, str | None]:
+        if cursor is None:
+            return None, None
+        try:
+            encoded = cursor + "=" * (-len(cursor) % 4)
+            value = json.loads(base64.urlsafe_b64decode(encoded).decode())
+            return datetime.fromisoformat(value["created_at"]), value["id"]
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            raise ValueError("invalid history cursor") from error
+
+    @staticmethod
+    def _history_cursor(item: HistoryItem) -> str:
+        payload = json.dumps(
+            {"created_at": item.created_at.isoformat(), "id": item.contribution_id},
+            separators=(",", ":"),
+        )
+        return base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+
     def list_history(self, cursor: str | None, limit: int) -> tuple[list[HistoryItem], str | None]:
+        created_at, contribution_id = self._decode_history_cursor(cursor)
         with self._pool.connection() as connection:
             rows = connection.execute(
                 """SELECT contribution.id::text, author.display_name, contribution.source,
@@ -275,12 +405,12 @@ class PostgresStore:
                    JOIN app_user author ON author.id = contribution.author_id
                    LEFT JOIN claim ON claim.contribution_id = contribution.id
                    WHERE contribution.stage = 'committed'
-                     AND (%s::uuid IS NULL OR (contribution.created_at, contribution.id) <
-                         (SELECT created_at, id FROM contribution WHERE id = %s::uuid))
+                     AND (%s::timestamptz IS NULL OR (contribution.created_at, contribution.id) <
+                         (%s::timestamptz, %s::uuid))
                    GROUP BY contribution.id, author.display_name
                    ORDER BY contribution.created_at DESC, contribution.id DESC
                    LIMIT %s""",
-                (cursor, cursor, limit + 1),
+                (created_at, created_at, contribution_id, limit + 1),
             ).fetchall()
         items = [
             HistoryItem(
@@ -289,4 +419,4 @@ class PostgresStore:
             )
             for row in rows[:limit]
         ]
-        return items, items[-1].contribution_id if len(rows) > limit else None
+        return items, self._history_cursor(items[-1]) if len(rows) > limit else None

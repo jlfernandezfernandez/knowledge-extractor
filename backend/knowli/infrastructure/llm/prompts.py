@@ -37,6 +37,7 @@ subject, not merely that they are related.
 
 Write `reason` as one short sentence in the same language as the claims."""
 
-ANSWER_SYSTEM = """Answer the question using only the knowledge claims provided below. \
-Cite the ids of the claims you actually used. If the claims do not answer the \
+ANSWER_SYSTEM = """Answer the question using only the supplied knowledge claims. Never \
+use outside knowledge or cite an id that was not supplied. Return the ids of every \
+claim that supports the answer in `cited_ids`. If the claims do not answer the \
 question, say so plainly instead of guessing. Answer in the question's language."""

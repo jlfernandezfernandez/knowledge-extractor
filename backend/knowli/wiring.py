@@ -4,6 +4,8 @@ import functools
 
 from . import config
 from .application.auth import AuthService
+from .application.ask import AskService
+from .application.interviews import InterviewService
 from .application.review import ContributionService
 from .infrastructure.embedding.embedder import ConfiguredEmbedder
 from .infrastructure.llm.openai import OpenAIModel
@@ -32,3 +34,13 @@ def contribution_service() -> ContributionService:
         ConfiguredEmbedder(),
         checkpointer(),
     )
+
+
+@functools.cache
+def ask_service() -> AskService:
+    return AskService(store, OpenAIModel(), ConfiguredEmbedder())
+
+
+@functools.cache
+def interview_service() -> InterviewService:
+    return InterviewService(store)

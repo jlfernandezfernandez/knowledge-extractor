@@ -199,3 +199,25 @@ def test_history_cursor_pages_without_skipping_or_repeating_items(database: Conn
     assert len(second_page) == 1
     assert {item.contribution_id for item in first_page + second_page} == set(contribution_ids)
     assert final_cursor is None
+
+
+def test_started_interview_reuses_one_contribution_and_completes_on_commit(
+    database: ConnectionPool,
+):
+    """A retry or commit that loses the interview link breaks the interview lifecycle."""
+    store = PostgresStore(database)
+    requester, assignee = _user(database, "Requestor"), _user(database, "Answerer")
+    interview = store.create_interview(requester, assignee, "Release process", "Context only")
+
+    first = store.start_interview(interview.id, assignee)
+    retried = store.start_interview(interview.id, assignee)
+    assert first is not None
+    assert retried is not None
+    assert first.contribution_id == retried.contribution_id
+
+    store.commit_claims(first.contribution_id, 0, [_claim("answer", "Release", "Ship Tuesday")])
+
+    completed = store.get_interview(interview.id)
+    assert completed is not None
+    assert completed.status == "completed"
+    assert completed.completed_at is not None
