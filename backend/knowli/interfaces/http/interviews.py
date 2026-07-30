@@ -42,6 +42,15 @@ def listing(
     return {"items": service.list(user.id, view)}
 
 
+@router.get("/by-contribution/{contribution_id}", response_model=InterviewResponse)
+def by_contribution(
+    contribution_id: str,
+    user: CurrentUserDep,
+    service: InterviewServiceDep,
+) -> object:
+    return service.by_contribution(user.id, contribution_id)
+
+
 @router.post("", response_model=InterviewResponse, status_code=status.HTTP_201_CREATED)
 def create(
     body: InterviewCreateRequest,

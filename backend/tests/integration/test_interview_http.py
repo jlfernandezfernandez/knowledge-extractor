@@ -36,6 +36,12 @@ class FakeInterviewService:
     def start(self, user_id, interview_id):
         return InterviewStart(self.interview, "contribution-1")
 
+    def by_contribution(self, user_id, contribution_id):
+        if user_id not in {self.interview.requester_id, self.interview.assignee_id}:
+            from knowli.application.interviews import InterviewUnavailable
+            raise InterviewUnavailable(contribution_id)
+        return self.interview
+
     def answer(self, user_id, interview_id, raw_text, contribution_service):
         self.answer_calls.append((user_id, interview_id, raw_text, contribution_service))
         return {"id": "contribution-1", "raw_text": raw_text}
@@ -102,6 +108,7 @@ async def test_global_routes_require_auth_and_use_the_global_contract():
     interview_service = FakeInterviewService()
     async with _client(interview_service, FakeAskService()) as client:
         listed = await client.get("/api/interviews?view=pending")
+        context = await client.get("/api/interviews/by-contribution/contribution-1")
         started = await client.post("/api/interviews/interview-1/start")
         answered = await client.post(
             "/api/interviews/interview-1/answer", json={"raw_text": "We deploy on Tuesdays."}
@@ -110,6 +117,7 @@ async def test_global_routes_require_auth_and_use_the_global_contract():
         listed_history = await client.get("/api/history?limit=20")
 
     assert listed.json()["items"][0]["assignee_id"] == "assignee"
+    assert context.json()["title"] == "Release process"
     assert started.json()["contribution_id"] == "contribution-1"
     assert answered.json() == {"id": "contribution-1", "raw_text": "We deploy on Tuesdays."}
     assert interview_service.answer_calls[0][:3] == (

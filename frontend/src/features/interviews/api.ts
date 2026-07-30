@@ -22,5 +22,6 @@ export const interviewsApi = {
   create: (input: { assignee_id: string; title: string; brief: string }) =>
     post<Interview>("/api/interviews", input),
   start: (id: string) => post<{ interview: Interview; contribution_id: string }>(`/api/interviews/${id}/start`),
+  byContribution: (contributionId: string) => request<Interview>(`/api/interviews/by-contribution/${contributionId}`),
   answer: (id: string, raw_text: string) => post<Contribution>(`/api/interviews/${id}/answer`, { raw_text }),
 };

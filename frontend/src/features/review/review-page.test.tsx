@@ -108,6 +108,21 @@ describe("contribution review", () => {
     expect(sessionStorage.getItem("knowli.interview.contribution-1")).toBeNull();
   });
 
+  it("recovers interview context from the server when a direct route has no local state", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "", stage: "claims" }));
+    fetchMock.mockResolvedValueOnce(response({
+      id: "interview-1", requester_id: "requester-1", assignee_id: "user-1", title: "Deployment retrospective", brief: "Explain the Friday release process.", status: "started", created_at: "2026-07-30T08:00:00Z", started_at: "2026-07-30T08:01:00Z", completed_at: null,
+    }));
+    renderReview();
+
+    expect(await screen.findByRole("heading", { name: "Deployment retrospective" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://localhost:8000/api/interviews/by-contribution/contribution-1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
   it("sends the human-selected conflict resolution, including merge text", async () => {
     const fetchMock = vi.mocked(fetch);
     const conflict = { claim_draft_key: "draft-1", existing_id: "claim-1", verdict: "conflict", reason: "The deployment date differs." };

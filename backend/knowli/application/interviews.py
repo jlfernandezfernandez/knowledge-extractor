@@ -48,6 +48,12 @@ class InterviewService:
             raise InterviewUnavailable(interview_id)
         return started
 
+    def by_contribution(self, user_id: str, contribution_id: str) -> Interview:
+        interview = self._store.get_interview_by_contribution(contribution_id)
+        if interview is None or user_id not in {interview.requester_id, interview.assignee_id}:
+            raise InterviewUnavailable(contribution_id)
+        return interview
+
     def answer(
         self,
         user_id: str,

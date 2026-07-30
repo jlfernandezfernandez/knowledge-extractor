@@ -58,6 +58,26 @@ describe("interviews", () => {
     expect(screen.queryByText("Deployment retrospective")).not.toBeInTheDocument();
   });
 
+  it("ignores an older tab response that resolves after the active tab", async () => {
+    let resolvePending!: (value: Response) => void;
+    let resolveSent!: (value: Response) => void;
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockReset();
+    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { resolvePending = resolve; }));
+    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { resolveSent = resolve; }));
+    renderPage();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("tab", { name: "Sent" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    resolveSent(response({ items: [{ ...interview, id: "sent-1", title: "Sent interview", status: "started" }] }));
+    expect(await screen.findByText("Sent interview")).toBeInTheDocument();
+    resolvePending(response({ items: [interview] }));
+
+    await waitFor(() => expect(screen.queryByText("Deployment retrospective")).not.toBeInTheDocument());
+    expect(screen.getByText("Sent interview")).toBeInTheDocument();
+  });
+
   it("does not reveal people or person imagery in interview rows", async () => {
     renderPage();
 

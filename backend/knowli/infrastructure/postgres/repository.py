@@ -157,6 +157,18 @@ class PostgresStore:
             ).fetchone()
         return self._interview(row) if row else None
 
+    def get_interview_by_contribution(self, contribution_id: str) -> Interview | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                """SELECT i.id::text, i.requester_id::text, i.assignee_id::text, i.title, i.brief,
+                          i.status, i.created_at, i.started_at, i.completed_at
+                   FROM interview AS i
+                   JOIN contribution AS c ON c.interview_id = i.id
+                   WHERE c.id = %s""",
+                (contribution_id,),
+            ).fetchone()
+        return self._interview(row) if row else None
+
     def list_interviews(self, user_id: str, view: InterviewView) -> list[Interview]:
         filters = {
             "pending": ("assignee_id = %s AND status = 'pending'", (user_id,)),

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { ErrorNote } from "@/components/common/error-note";
@@ -26,12 +26,18 @@ export function InterviewsPage() {
   const [view, setView] = useState<InterviewView>("pending");
   const [items, setItems] = useState<Interview[]>([]);
   const [error, setError] = useState<unknown>(null);
+  const requestVersion = useRef(0);
 
-  const load = (next: InterviewView) => {
+  const load = useCallback((next: InterviewView) => {
+    const version = ++requestVersion.current;
     setError(null);
-    void interviewsApi.list(next).then(setItems).catch(setError);
-  };
-  useEffect(() => { load(view); }, [view]);
+    void interviewsApi.list(next).then((nextItems) => {
+      if (version === requestVersion.current) setItems(nextItems);
+    }).catch((failure) => {
+      if (version === requestVersion.current) setError(failure);
+    });
+  }, []);
+  useEffect(() => { load(view); }, [load, view]);
 
   async function start(interview: Interview) {
     setError(null);
@@ -47,7 +53,7 @@ export function InterviewsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10">
       <div className="flex items-center justify-between gap-4"><div><h1 className="text-2xl font-semibold">{t("interviews.title")}</h1><p className="mt-1 text-muted-foreground">{t("interviews.lead")}</p></div><InterviewDialog onCreated={() => load(view)} /></div>
-      <Tabs value={view} onValueChange={(value) => { setItems([]); setView(value as InterviewView); }} className="mt-8">
+      <Tabs value={view} onValueChange={(value) => { requestVersion.current += 1; setItems([]); setView(value as InterviewView); }} className="mt-8">
         <TabsList><TabsTrigger value="pending">{t("interviews.tabs.pending")}</TabsTrigger><TabsTrigger value="sent">{t("interviews.tabs.sent")}</TabsTrigger><TabsTrigger value="completed">{t("interviews.tabs.completed")}</TabsTrigger></TabsList>
         {(["pending", "sent", "completed"] as const).map((tab) => <TabsContent key={tab} value={tab}><ul className="mt-4">{items.length ? items.map((item) => <InterviewRow key={item.id} interview={item} onStart={(item) => void start(item)} />) : <li className="py-6 text-sm text-muted-foreground">{t(`interviews.empty.${tab}`)}</li>}</ul></TabsContent>)}
       </Tabs>

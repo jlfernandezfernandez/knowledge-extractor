@@ -9,7 +9,7 @@ import { ApiError, API_URL } from "@/lib/api";
 import { contributionsApi } from "@/features/contributions/api";
 import type { ClaimDraft, Contribution } from "@/features/contributions/types";
 import { interviewsApi, type Interview } from "@/features/interviews/api";
-import { clearInterviewContext, readInterviewContext } from "@/features/interviews/context";
+import { clearInterviewContext, readInterviewContext, rememberInterviewContext } from "@/features/interviews/context";
 
 type DraftAction =
   | { type: "reset"; claims: ClaimDraft[] }
@@ -28,7 +28,8 @@ export function ReviewPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const location = useLocation();
-  const interview = (location.state as { interview?: Interview } | null)?.interview ?? readInterviewContext(id);
+  const routeInterview = (location.state as { interview?: Interview } | null)?.interview;
+  const [interview, setInterview] = useState<Interview | null>(() => routeInterview ?? readInterviewContext(id));
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [drafts, dispatch] = useReducer(draftReducer, []);
   const [answer, setAnswer] = useState("");
@@ -51,6 +52,18 @@ export function ReviewPage() {
     });
     return () => stream.close();
   }, [id, refresh]);
+
+  useEffect(() => {
+    setInterview(routeInterview ?? readInterviewContext(id));
+  }, [id, location.key, routeInterview]);
+
+  useEffect(() => {
+    if (!contribution || contribution.kind !== "interview" || contribution.raw_text || interview) return;
+    void interviewsApi.byContribution(id).then((recovered) => {
+      rememberInterviewContext(id, recovered);
+      setInterview(recovered);
+    }).catch(setError);
+  }, [contribution, id, interview]);
 
   async function perform(action: () => Promise<Contribution>) {
     setBusy(true);

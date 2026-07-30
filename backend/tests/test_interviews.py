@@ -54,6 +54,12 @@ class MemoryInterviewStore:
     def get_interview(self, interview_id):
         return self.interviews.get(interview_id)
 
+    def get_interview_by_contribution(self, contribution_id):
+        for interview_id, stored_contribution_id in self.contribution_ids.items():
+            if stored_contribution_id == contribution_id:
+                return self.interviews[interview_id]
+        return None
+
     def start_interview(self, interview_id, assignee_id):
         from dataclasses import replace
         from knowli.domain.interview import InterviewStart
@@ -127,6 +133,21 @@ def test_answer_requires_the_assignee_to_start_the_interview_first():
 
     with pytest.raises(InvalidInterview, match="started"):
         service.answer("assignee", interview.id, "Deploy on Tuesdays.", FakeContributionService())
+
+
+def test_context_by_contribution_is_visible_to_the_requester_and_assignee_only():
+    """A route id must not let unrelated users recover private interview context."""
+    from knowli.application.interviews import InterviewService, InterviewUnavailable
+
+    store = MemoryInterviewStore()
+    service = InterviewService(store)
+    interview = service.create("requester", "assignee", "Deployment", "Release details")
+    started = service.start("assignee", interview.id)
+
+    assert service.by_contribution("requester", started.contribution_id) == store.interviews[interview.id]
+    assert service.by_contribution("assignee", started.contribution_id) == store.interviews[interview.id]
+    with pytest.raises(InterviewUnavailable):
+        service.by_contribution("other", started.contribution_id)
 
 
 def test_list_views_separate_received_sent_and_completed_interviews():
