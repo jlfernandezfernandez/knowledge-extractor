@@ -106,3 +106,83 @@ def test_commit_retry_is_idempotent(database: ConnectionPool):
     assert retried == committed
     with database.connection() as connection:
         assert connection.execute("SELECT count(*) FROM claim").fetchone()[0] == 1
+
+
+def test_commit_retry_requires_the_original_revision_and_full_payload(database: ConnectionPool):
+    store = PostgresStore(database)
+    contribution = store.create_contribution(_user(database, "Nora"), "Text", "text")
+    claims = [_claim("stable-key", "Stable", "The original statement")]
+    store.commit_claims(contribution.id, 0, claims)
+
+    with pytest.raises(StaleRevision):
+        store.commit_claims(contribution.id, 1, claims)
+    with pytest.raises(StaleRevision):
+        store.commit_claims(
+            contribution.id, 0, [_claim("stable-key", "Changed", "The original statement")]
+        )
+
+
+def test_commit_returns_the_result_of_its_locked_transaction(
+    database: ConnectionPool, monkeypatch: pytest.MonkeyPatch
+):
+    store = PostgresStore(database)
+    contribution = store.create_contribution(_user(database, "Mina"), "Text", "text")
+    original_get = store.get_contribution
+
+    def read_after_a_concurrent_write(contribution_id: str):
+        with database.connection() as connection:
+            connection.execute(
+                """UPDATE contribution
+                   SET summary = 'Later writer', revision = revision + 1
+                   WHERE id = %s""",
+                (contribution_id,),
+            )
+        return original_get(contribution_id)
+
+    monkeypatch.setattr(store, "get_contribution", read_after_a_concurrent_write)
+
+    committed = store.commit_claims(contribution.id, 0, [_claim("one", "One", "Statement")])
+
+    assert (committed.revision, committed.summary) == (1, "")
+
+
+def test_review_returns_the_revision_it_wrote(
+    database: ConnectionPool, monkeypatch: pytest.MonkeyPatch
+):
+    store = PostgresStore(database)
+    contribution = store.create_contribution(_user(database, "Omar"), "Text", "text")
+    original_get = store.get_contribution
+
+    def read_after_a_concurrent_write(contribution_id: str):
+        with database.connection() as connection:
+            connection.execute(
+                """UPDATE contribution
+                   SET summary = 'Later writer', revision = revision + 1
+                   WHERE id = %s""",
+                (contribution_id,),
+            )
+        return original_get(contribution_id)
+
+    monkeypatch.setattr(store, "get_contribution", read_after_a_concurrent_write)
+
+    updated = store.save_review(contribution.id, 0, "conflicts", "Reviewed now")
+
+    assert (updated.revision, updated.summary) == (1, "Reviewed now")
+
+
+def test_history_cursor_pages_without_skipping_or_repeating_items(database: ConnectionPool):
+    store = PostgresStore(database)
+    author = _user(database, "Pia")
+    contribution_ids = []
+    for key in ("first", "second", "third"):
+        contribution = store.create_contribution(author, key, "text")
+        store.commit_claims(contribution.id, 0, [_claim(key, key, f"{key} statement")])
+        contribution_ids.append(contribution.id)
+
+    first_page, cursor = store.list_history(None, 2)
+    second_page, final_cursor = store.list_history(cursor, 2)
+
+    assert len(first_page) == 2
+    assert len(second_page) == 1
+    assert {item.contribution_id for item in first_page + second_page} == set(contribution_ids)
+    assert final_cursor is None

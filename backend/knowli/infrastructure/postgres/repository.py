@@ -59,20 +59,33 @@ class PostgresStore:
         self, contribution_id: str, expected_revision: int, stage: str, summary: str
     ) -> StoredContribution:
         with self._pool.connection() as connection:
-            updated = connection.execute(
-                """UPDATE contribution
-                   SET stage = %s, summary = %s, revision = revision + 1, updated_at = now()
-                   WHERE id = %s AND revision = %s AND stage <> 'committed'
-                   RETURNING id""",
+            row = connection.execute(
+                """WITH updated AS (
+                       UPDATE contribution
+                       SET stage = %s, summary = %s, revision = revision + 1, updated_at = now()
+                       WHERE id = %s AND revision = %s AND stage <> 'committed'
+                       RETURNING id, author_id, kind, source, raw_text, stage, revision,
+                                 summary, created_at, committed_at
+                   )
+                   SELECT updated.id::text, updated.author_id::text, author.display_name,
+                          updated.kind, updated.source, updated.raw_text, updated.stage,
+                          updated.revision, updated.summary, updated.created_at,
+                          updated.committed_at, count(claim.id)
+                   FROM updated
+                   JOIN app_user author ON author.id = updated.author_id
+                   LEFT JOIN claim ON claim.contribution_id = updated.id
+                   GROUP BY updated.id, updated.author_id, author.display_name, updated.kind,
+                            updated.source, updated.raw_text, updated.stage, updated.revision,
+                            updated.summary, updated.created_at, updated.committed_at""",
                 (stage, summary, contribution_id, expected_revision),
             ).fetchone()
-        if updated is None:
-            if self.get_contribution(contribution_id) is None:
-                raise ContributionNotFound(contribution_id)
-            raise StaleRevision(contribution_id)
-        contribution = self.get_contribution(contribution_id)
-        assert contribution is not None
-        return contribution
+            if row is None:
+                if connection.execute(
+                    "SELECT 1 FROM contribution WHERE id = %s", (contribution_id,)
+                ).fetchone() is None:
+                    raise ContributionNotFound(contribution_id)
+                raise StaleRevision(contribution_id)
+            return self._stored(row)
 
     def commit_claims(
         self, contribution_id: str, expected_revision: int, claims: list[ClaimToCommit]
@@ -85,7 +98,23 @@ class PostgresStore:
             if contribution is None:
                 raise ContributionNotFound(contribution_id)
             if contribution[0] == "committed":
-                pass
+                if contribution[1] != expected_revision + 1:
+                    raise StaleRevision(contribution_id)
+                if len(claims) != connection.execute(
+                    "SELECT count(*) FROM claim WHERE contribution_id = %s", (contribution_id,)
+                ).fetchone()[0]:
+                    raise StaleRevision(contribution_id)
+                for claim in claims:
+                    if connection.execute(
+                        """SELECT 1 FROM claim
+                           WHERE contribution_id = %s AND draft_key = %s AND title = %s
+                             AND statement = %s AND tags = %s AND embedding = %s::vector""",
+                        (
+                            contribution_id, claim.draft_key, claim.title, claim.statement,
+                            list(claim.tags), list(claim.embedding),
+                        ),
+                    ).fetchone() is None:
+                        raise StaleRevision(contribution_id)
             elif contribution[1] != expected_revision:
                 raise StaleRevision(contribution_id)
             else:
@@ -120,9 +149,19 @@ class PostgresStore:
                        WHERE id = (SELECT interview_id FROM contribution WHERE id = %s)""",
                     (contribution_id,),
                 )
-        stored = self.get_contribution(contribution_id)
-        assert stored is not None
-        return stored
+            row = connection.execute(
+                """SELECT c.id::text, c.author_id::text, author.display_name, c.kind, c.source,
+                          c.raw_text, c.stage, c.revision, c.summary, c.created_at,
+                          c.committed_at, count(claim.id)
+                   FROM contribution c
+                   JOIN app_user author ON author.id = c.author_id
+                   LEFT JOIN claim ON claim.contribution_id = c.id
+                   WHERE c.id = %s
+                   GROUP BY c.id, author.display_name""",
+                (contribution_id,),
+            ).fetchone()
+            assert row is not None
+            return self._stored(row)
 
     def search_claims(
         self, query_text: str, query_embedding: list[float], limit: int
@@ -189,4 +228,4 @@ class PostgresStore:
             )
             for row in rows[:limit]
         ]
-        return items, rows[limit][0] if len(rows) > limit else None
+        return items, items[-1].contribution_id if len(rows) > limit else None
