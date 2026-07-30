@@ -13,6 +13,33 @@ export const es: typeof en = {
   },
   nav: {
     back: "Atrás",
+    home: "Conocimiento",
+    ask: "Preguntar",
+    interviews: "Entrevistas",
+    history: "Historial",
+  },
+  shell: {
+    primaryNavigation: "Navegación principal",
+    openNavigation: "Abrir navegación",
+    accountMenu: "Menú de cuenta",
+    settings: "Ajustes",
+    signOut: "Cerrar sesión",
+  },
+  pages: {
+    loading: { title: "Cargando", description: "Preparando tu espacio de conocimiento." },
+    knowledge: { title: "Conocimiento", description: "Aquí aparecerá el conocimiento compartido." },
+    ask: { title: "Preguntar", description: "Haz una pregunta sobre el conocimiento que todas las personas han aportado." },
+    interviews: { title: "Entrevistas", description: "Aquí aparecerán tus invitaciones a entrevistas." },
+    history: { title: "Historial", description: "Aquí aparecerán tus aportaciones y entrevistas." },
+    review: { title: "Revisar", description: "Revisa el conocimiento recogido en esta aportación." },
+  },
+  auth: {
+    displayName: "Nombre",
+    email: "Correo electrónico",
+    password: "Contraseña",
+    failed: "Algo ha salido mal. Vuelve a intentarlo.",
+    login: { title: "Iniciar sesión", description: "Continúa a tu espacio de conocimiento.", submit: "Iniciar sesión", alternate: "Crear una cuenta" },
+    register: { title: "Crear cuenta", description: "Empieza a aportar conocimiento compartido.", submit: "Crear cuenta", alternate: "Inicia sesión" },
   },
   stepper: {
     label: "Progreso",

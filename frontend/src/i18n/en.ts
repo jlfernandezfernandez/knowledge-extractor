@@ -9,6 +9,33 @@ export const en = {
   },
   nav: {
     back: "Back",
+    home: "Knowledge",
+    ask: "Ask",
+    interviews: "Interviews",
+    history: "History",
+  },
+  shell: {
+    primaryNavigation: "Primary navigation",
+    openNavigation: "Open navigation",
+    accountMenu: "Account menu",
+    settings: "Settings",
+    signOut: "Sign out",
+  },
+  pages: {
+    loading: { title: "Loading", description: "Preparing your knowledge workspace." },
+    knowledge: { title: "Knowledge", description: "Your shared knowledge will appear here." },
+    ask: { title: "Ask", description: "Ask a question against the knowledge everyone has contributed." },
+    interviews: { title: "Interviews", description: "Your interview invitations will appear here." },
+    history: { title: "History", description: "Your contributions and interviews will appear here." },
+    review: { title: "Review", description: "Review the knowledge captured in this contribution." },
+  },
+  auth: {
+    displayName: "Name",
+    email: "Email",
+    password: "Password",
+    failed: "Something went wrong. Please try again.",
+    login: { title: "Sign in", description: "Continue to your knowledge workspace.", submit: "Sign in", alternate: "Create an account" },
+    register: { title: "Create account", description: "Start contributing to shared knowledge.", submit: "Create account", alternate: "Sign in instead" },
   },
   stepper: {
     label: "Progress",
