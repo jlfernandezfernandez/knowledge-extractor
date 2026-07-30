@@ -71,7 +71,9 @@ def test_transcription_websocket_requires_a_session_cookie():
     assert denied.value.status_code == 401
 
 
-def test_transcription_websocket_reports_disabled_speech_to_authenticated_users():
+def test_transcription_websocket_reports_disabled_speech_to_authenticated_users(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """An optional speech install must deny consistently instead of raising an import error."""
     class AuthenticatedSession:
         def authenticate(self, _: str) -> object:
@@ -79,6 +81,9 @@ def test_transcription_websocket_reports_disabled_speech_to_authenticated_users(
 
     app = create_app()
     app.dependency_overrides[auth.get_auth_service] = AuthenticatedSession
+    monkeypatch.setattr(
+        "knowli.interfaces.http.speech.wiring.speech_available", lambda: False
+    )
 
     with TestClient(app) as client:
         client.cookies.set("knowli_session", "token")
