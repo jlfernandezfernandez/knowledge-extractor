@@ -143,9 +143,10 @@ Expected: `ModuleNotFoundError` for `migrations`.
   `app_session → login_session`, `review_session → contribution`, and
   `knowledge → claim`. Create a synthetic committed contribution for each
   legacy claim without a review-session relationship. Resolve a legacy author
-  by exact display name when possible and otherwise create one deterministic
-  `legacy@local.invalid` user. Convert interview `done` to `completed` and map
-  its old `session_id` to `contribution.interview_id`.
+  by exact display name only when that match is unique. Otherwise create one
+  deterministic synthetic user per distinct legacy author, so names are not
+  merged or assigned arbitrarily. Convert interview `done` to `completed` and
+  map its old `session_id` to `contribution.interview_id`.
 
 - [ ] Add transactional guards before cleanup:
 
