@@ -553,6 +553,7 @@ git commit -m "feat(api): finish interviews ask and history"
 
 - Modify: `backend/knowli/interfaces/http/main.py`
 - Modify: `backend/knowli/interfaces/http/health.py`
+- Modify: `backend/knowli/config.py`
 - Modify: `backend/knowli/wiring.py`
 - Delete: `backend/knowli/interfaces/a2a/`
 - Delete: `backend/knowli/interfaces/mcp/`
@@ -579,6 +580,12 @@ uv run --directory backend pytest tests/test_app.py -q
 - [ ] Build dependencies once in a typed `AppServices` dataclass during
   lifespan. Mount routers explicitly. Close model, checkpointer, and pool in
   reverse construction order.
+
+- [ ] Keep health configuration truthful to the current settings (`OPENAI_*`,
+  `EMBEDDING_*`, and `SPEECH_PROVIDER`) and expose both live and ready checks.
+  The default process must import without optional speech packages or an API
+  key, so service construction stays lazy until a protected product route is
+  used.
 
 - [ ] Delete A2A and MCP source packages. Keep no compatibility stubs, protocol
   configuration, scripts, or documentation links.
