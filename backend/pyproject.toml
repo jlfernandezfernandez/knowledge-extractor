@@ -24,6 +24,7 @@ dev = ["pytest>=8.3", "httpx>=0.28"]
 
 [project.scripts]
 knowli-api = "knowli.interfaces.http.main:main"
+knowli-seed = "knowli.seed:main"
 
 [build-system]
 requires = ["hatchling"]
