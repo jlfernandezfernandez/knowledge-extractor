@@ -47,6 +47,28 @@ class AskService:
             "citations": citations,
         }
 
+    def stream_ask(self, question: str):
+        if not question.strip():
+            raise InvalidQuestion("question is required")
+        claims = self._store.search_claims(
+            question, self._embedder.embed([question])[0], self._retrieve_limit
+        )
+        citations = [self._citation(claim) for claim in claims]
+        yield {"type": "claims", "citations": citations}
+
+        if not claims:
+            yield {"type": "done"}
+            return
+
+        if hasattr(self._model, "stream_answer"):
+            for token in self._model.stream_answer(question, [asdict(claim) for claim in claims]):
+                yield {"type": "token", "content": token}
+        else:
+            answer = self._model.answer(question, [asdict(claim) for claim in claims])
+            yield {"type": "token", "content": answer.answer}
+
+        yield {"type": "done"}
+
     @staticmethod
     def _citation(claim: ClaimSearchResult) -> dict:
         return {

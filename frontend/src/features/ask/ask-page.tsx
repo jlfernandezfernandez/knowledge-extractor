@@ -81,6 +81,47 @@ export function AskPage() {
     setResult(null);
     setSubmittedQuestion(trimmedQuestion);
     setQuestion("");
+
+    if (typeof EventSource !== "undefined") {
+      const url = `/api/ask/stream?question=${encodeURIComponent(trimmedQuestion)}`;
+      const es = new EventSource(url);
+      let citations: Citation[] = [];
+      let streamingText = "";
+
+      es.onmessage = (evt) => {
+        try {
+          const payload = JSON.parse(evt.data);
+          if (payload.type === "claims") {
+            citations = payload.citations || [];
+            setResult({
+              answer: "",
+              citations,
+              sufficient_evidence: citations.length > 0,
+            });
+            setBusy(false);
+          } else if (payload.type === "token") {
+            streamingText += payload.content || "";
+            setResult({
+              answer: streamingText,
+              citations,
+              sufficient_evidence: true,
+            });
+          } else if (payload.type === "done" || payload.type === "error") {
+            es.close();
+            setBusy(false);
+          }
+        } catch {
+          // ignore parse error
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        void askApi.ask(trimmedQuestion).then(setResult).catch(setError).finally(() => setBusy(false));
+      };
+      return;
+    }
+
     try {
       setResult(await askApi.ask(trimmedQuestion));
     } catch (failure) {

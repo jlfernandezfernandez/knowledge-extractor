@@ -78,3 +78,20 @@ class OpenAICompatibleModel:
         )
         answer = result if isinstance(result, Answer) else Answer.model_validate(result)
         return AnswerResult(answer=answer.answer, cited_ids=tuple(answer.cited_ids))
+
+    def stream_answer(self, question: str, claims: list[dict[str, Any]]):
+        prompt = [
+            ("system", ANSWER_SYSTEM + "\nResponde de forma clara y directa en español sin envolver en JSON."),
+            (
+                "human",
+                json.dumps(
+                    {"claims": claims, "question": question},
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            ),
+        ]
+        for chunk in self._chat.stream(prompt):
+            content = getattr(chunk, "content", None)
+            if content and isinstance(content, str):
+                yield content
