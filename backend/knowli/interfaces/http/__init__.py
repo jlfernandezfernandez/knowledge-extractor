@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from ... import wiring
+from ... import __version__, wiring
 from . import ask, auth, health, history, interviews, review, transcription
 from .errors import register_error_handlers
 
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Knowli", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="Knowli", version=__version__, lifespan=lifespan)
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(auth.router)
