@@ -1,8 +1,11 @@
 """Embeddings: local ONNX by default, any OpenAI-compatible endpoint if configured."""
 
 import functools
+import logging
 
 from ... import config
+
+logger = logging.getLogger(__name__)
 
 
 @functools.cache
@@ -19,8 +22,8 @@ class ConfiguredEmbedder:
         """Pre-initialize local embedding model to prevent first-request cold-start latency."""
         try:
             _local_model()
-        except Exception:
-            pass
+        except Exception as error:
+            logger.warning("FastEmbed warmup deferred: %s", error)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed a batch of texts. Returns one vector per input, in order."""
