@@ -4,7 +4,7 @@ import { BookOpenIcon, ChevronsUpDownIcon, HistoryIcon, LogOutIcon, MessageCircl
 import { Brand } from "@/components/brand";
 import { GitHubLogo } from "@/components/github-logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -129,14 +129,15 @@ export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout
             <Brand label={t("app.name")} />
           </NavLink>
           <div className="ml-auto">
-            <Button
+            <a
+              href="https://github.com/jlfernandezfernandez/knowli"
               aria-label={t("shell.repository")}
-              variant="ghost"
-              size="icon"
-              render={<a href="https://github.com/jlfernandezfernandez/knowli" rel="noreferrer" target="_blank" />}
+              rel="noreferrer"
+              target="_blank"
+              className={buttonVariants({ variant: "ghost", size: "icon" })}
             >
               <GitHubLogo aria-hidden="true" />
-            </Button>
+            </a>
           </div>
         </header>
         <Outlet />

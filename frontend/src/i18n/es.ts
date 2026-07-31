@@ -102,7 +102,7 @@ export const es: typeof en = {
   review: {
     loading: "Cargando aportación…",
     progress: "Etapa: {{stage}}",
-    stages: { claims: "Revisar ideas", conflicts: "Resolver conflictos", commit: "Listo para guardar", completed: "Guardado" },
+    stages: { claims: "Revisar ideas", conflicts: "Resolver conflictos", commit: "Listo para guardar", committed: "Guardado" },
     claimTitle: "Título de la idea",
     claimStatement: "Texto de la idea",
     mergedStatement: "Texto combinado",
