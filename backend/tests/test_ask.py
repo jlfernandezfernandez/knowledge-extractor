@@ -78,6 +78,7 @@ def test_ask_returns_only_retrieved_citations_with_exact_provenance():
                 "contribution_created_at": datetime(2026, 7, 29, tzinfo=UTC),
             }
         ],
+        "sufficient_evidence": True,
     }
     assert model.calls[0][1][0]["id"] == "claim-1"
 
@@ -92,6 +93,7 @@ def test_ask_returns_deterministic_insufficient_evidence_without_claims():
     assert result == {
         "answer": "",
         "citations": [],
+        "sufficient_evidence": False,
     }
     assert model.calls == []
 

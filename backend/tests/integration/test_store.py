@@ -55,8 +55,8 @@ def _claim(key: str, title: str, statement: str) -> ClaimToCommit:
 def test_global_search_returns_claims_from_two_authors(database: ConnectionPool):
     store = PostgresStore(database)
     ana, bruno = _user(database, "Ana"), _user(database, "Bruno")
-    first = store.create_contribution(ana, "Ana contribution", "text")
-    second = store.create_contribution(bruno, "Bruno contribution", "text")
+    first = store.create_contribution(ana, "Ana contribution")
+    second = store.create_contribution(bruno, "Bruno contribution")
     store.commit_claims(first.id, 0, [_claim("ana", "Ana result", "Global retrieval signal")])
     store.commit_claims(second.id, 0, [_claim("bruno", "Bruno result", "Global retrieval signal")])
 
@@ -70,7 +70,7 @@ def test_global_search_returns_claims_from_two_authors(database: ConnectionPool)
 def test_history_includes_author_source_and_claim_count(database: ConnectionPool):
     store = PostgresStore(database)
     author = _user(database, "Ada")
-    contribution = store.create_contribution(author, "An imported note", "text")
+    contribution = store.create_contribution(author, "An imported note")
     store.commit_claims(contribution.id, 0, [_claim("one", "One", "First statement")])
 
     items, next_cursor = store.list_history(None, 10)
@@ -78,14 +78,13 @@ def test_history_includes_author_source_and_claim_count(database: ConnectionPool
     assert len(items) == 1
     assert items[0].contribution_id == contribution.id
     assert items[0].author == "Ada"
-    assert items[0].source == "text"
     assert items[0].claim_count == 1
     assert next_cursor is None
 
 
 def test_review_rejects_a_stale_revision(database: ConnectionPool):
     store = PostgresStore(database)
-    contribution = store.create_contribution(_user(database, "Rita"), "Text", "text")
+    contribution = store.create_contribution(_user(database, "Rita"), "Text")
     updated = store.save_review(contribution.id, 0, "conflicts", "Found a conflict")
 
     with pytest.raises(StaleRevision):
@@ -96,7 +95,7 @@ def test_review_rejects_a_stale_revision(database: ConnectionPool):
 
 def test_commit_retry_is_idempotent(database: ConnectionPool):
     store = PostgresStore(database)
-    contribution = store.create_contribution(_user(database, "Iris"), "Text", "text")
+    contribution = store.create_contribution(_user(database, "Iris"), "Text")
     claims = [_claim("stable-key", "Stable", "A retry must not duplicate this claim")]
 
     committed = store.commit_claims(contribution.id, 0, claims)
@@ -110,7 +109,7 @@ def test_commit_retry_is_idempotent(database: ConnectionPool):
 
 def test_commit_retry_requires_the_original_revision_and_full_payload(database: ConnectionPool):
     store = PostgresStore(database)
-    contribution = store.create_contribution(_user(database, "Nora"), "Text", "text")
+    contribution = store.create_contribution(_user(database, "Nora"), "Text")
     claims = [_claim("stable-key", "Stable", "The original statement")]
     store.commit_claims(contribution.id, 0, claims)
 
@@ -126,7 +125,7 @@ def test_commit_retry_rejects_duplicate_keys_when_another_claim_is_omitted(
     database: ConnectionPool,
 ):
     store = PostgresStore(database)
-    contribution = store.create_contribution(_user(database, "Quinn"), "Text", "text")
+    contribution = store.create_contribution(_user(database, "Quinn"), "Text")
     first = _claim("first", "First", "First stored statement")
     second = _claim("second", "Second", "Second stored statement")
     store.commit_claims(contribution.id, 0, [first, second])
@@ -139,7 +138,7 @@ def test_commit_returns_the_result_of_its_locked_transaction(
     database: ConnectionPool, monkeypatch: pytest.MonkeyPatch
 ):
     store = PostgresStore(database)
-    contribution = store.create_contribution(_user(database, "Mina"), "Text", "text")
+    contribution = store.create_contribution(_user(database, "Mina"), "Text")
     original_get = store.get_contribution
 
     def read_after_a_concurrent_write(contribution_id: str):
@@ -163,7 +162,7 @@ def test_review_returns_the_revision_it_wrote(
     database: ConnectionPool, monkeypatch: pytest.MonkeyPatch
 ):
     store = PostgresStore(database)
-    contribution = store.create_contribution(_user(database, "Omar"), "Text", "text")
+    contribution = store.create_contribution(_user(database, "Omar"), "Text")
     original_get = store.get_contribution
 
     def read_after_a_concurrent_write(contribution_id: str):
@@ -188,7 +187,7 @@ def test_history_cursor_pages_without_skipping_or_repeating_items(database: Conn
     author = _user(database, "Pia")
     contribution_ids = []
     for key in ("first", "second", "third"):
-        contribution = store.create_contribution(author, key, "text")
+        contribution = store.create_contribution(author, key)
         store.commit_claims(contribution.id, 0, [_claim(key, key, f"{key} statement")])
         contribution_ids.append(contribution.id)
 

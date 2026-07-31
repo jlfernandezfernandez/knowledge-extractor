@@ -87,6 +87,7 @@ class CitationResponse(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     citations: list[CitationResponse]
+    sufficient_evidence: bool
 
 
 class HistoryItemResponse(BaseModel):

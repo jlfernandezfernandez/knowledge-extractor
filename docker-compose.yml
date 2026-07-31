@@ -7,6 +7,8 @@ services:
       POSTGRES_USER: knowli
       POSTGRES_PASSWORD: knowli
       POSTGRES_DB: knowli
+    ports:
+      - "5432:5432"
     volumes:
       - knowli_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,6 +21,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
     command: ["sh", "-c", "python -c 'from knowli.infrastructure.postgres.pool import init; init()' && exec uvicorn knowli.interfaces.http.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /opt/venv/lib/python3.12/site-packages/knowli"]
     environment:
       DATABASE_URL: postgresql://knowli:knowli@db:5432/knowli

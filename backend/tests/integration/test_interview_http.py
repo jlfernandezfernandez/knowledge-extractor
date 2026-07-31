@@ -69,7 +69,7 @@ def _client(interview_service, ask_service):
     app.dependency_overrides[interviews.get_interview_service] = lambda: interview_service
     app.dependency_overrides[interviews.get_contribution_service] = lambda: object()
     app.dependency_overrides[ask.get_ask_service] = lambda: ask_service
-    app.dependency_overrides[history.get_ask_service] = lambda: ask_service
+    app.dependency_overrides[history.get_history_service] = lambda: ask_service
     app.dependency_overrides[auth.require_user] = lambda: User(
         id="assignee", email="assignee@example.test", display_name="Assignee"
     )
@@ -90,7 +90,7 @@ def _invalid_cursor_client():
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(history.router)
-    app.dependency_overrides[history.get_ask_service] = lambda: HistoryService(InvalidCursorStore())
+    app.dependency_overrides[history.get_history_service] = lambda: HistoryService(InvalidCursorStore())
     app.dependency_overrides[auth.require_user] = lambda: User(
         id="assignee", email="assignee@example.test", display_name="Assignee"
     )

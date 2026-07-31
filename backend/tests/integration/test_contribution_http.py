@@ -33,7 +33,7 @@ class FakeContributionService:
             "conflicts": [],
         }
 
-    def capture(self, user_id, raw_text, source, interview_id=None):
+    def capture(self, user_id, raw_text, source="text", interview_id=None):
         self.state = {**self.state, "author_id": user_id, "raw_text": raw_text, "source": source}
         return self.state
 
@@ -112,7 +112,7 @@ async def test_create_and_edit_use_public_contribution_contracts(service):
     async with _client(service) as client:
         created = await client.post(
             "/api/contributions",
-            json={"raw_text": "Deploy on Tuesdays.", "source": "text"},
+            json={"raw_text": "Deploy on Tuesdays."},
         )
         confirmed = await client.post(
             f"/api/contributions/{service.state['id']}/confirm",
