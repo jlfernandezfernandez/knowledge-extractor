@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
 import { contributionsApi } from "@/features/contributions/api";
 import { interviewsApi, type Interview } from "@/features/interviews/api";
 
@@ -143,7 +144,13 @@ export function HomePage() {
             type="button"
             variant={recording ? "destructive" : "ghost"}
           >
-            {recording ? <SquareIcon data-icon="inline-start" /> : <MicIcon data-icon="inline-start" />}
+            {transcribing ? (
+              <Spinner data-icon="inline-start" />
+            ) : recording ? (
+              <SquareIcon data-icon="inline-start" />
+            ) : (
+              <MicIcon data-icon="inline-start" />
+            )}
           </Button>
           <Button onClick={() => void createContribution()} disabled={busy || transcribing || !text.trim()}>{t("home.submit")}</Button>
         </div>

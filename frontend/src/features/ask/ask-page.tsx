@@ -3,10 +3,12 @@ import { ArrowUpIcon, ChevronDownIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ErrorNote } from "@/components/common/error-note";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Message, MessageContent, MessageGroup, MessageHeader } from "@/components/ui/message";
 import { askApi, type AskResponse, type Citation } from "./api";
 
 function CitationCard({ citation }: { citation: Citation }) {
@@ -37,21 +39,27 @@ function Answer({ result }: { result: AskResponse }) {
   const { t } = useTranslation();
 
   return (
-    <Card aria-live="polite">
-      <CardHeader>
-        <CardTitle>{t("ask.answer")}</CardTitle>
-        {!result.sufficient_evidence && <CardDescription>{t("ask.insufficientEvidence")}</CardDescription>}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        {result.sufficient_evidence && <p className="whitespace-pre-wrap leading-7">{result.answer}</p>}
-        {result.citations.length > 0 && (
-          <section aria-labelledby="citations-title">
-            <h2 id="citations-title" className="mb-3 text-sm font-medium">{t("ask.citations")}</h2>
-            <div className="flex flex-col gap-2">{result.citations.map((citation) => <CitationCard key={citation.id} citation={citation} />)}</div>
-          </section>
-        )}
-      </CardContent>
-    </Card>
+    <Message align="start" aria-live="polite">
+      <MessageContent>
+        <MessageHeader>{t("ask.answer")}</MessageHeader>
+        <Bubble variant="outline" className="w-full max-w-full">
+          <BubbleContent className="flex flex-col gap-4 p-4">
+            {!result.sufficient_evidence && (
+              <p className="text-sm italic text-muted-foreground">{t("ask.insufficientEvidence")}</p>
+            )}
+            {result.sufficient_evidence && (
+              <p className="whitespace-pre-wrap leading-7 text-foreground">{result.answer}</p>
+            )}
+            {result.citations.length > 0 && (
+              <section aria-labelledby="citations-title" className="mt-2 border-t pt-3">
+                <h2 id="citations-title" className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("ask.citations")}</h2>
+                <div className="flex flex-col gap-2">{result.citations.map((citation) => <CitationCard key={citation.id} citation={citation} />)}</div>
+              </section>
+            )}
+          </BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
   );
 }
 
@@ -87,21 +95,34 @@ export function AskPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">{t("ask.title")}</h1>
       </header>
-      <div className="flex flex-1 flex-col gap-4">
+      <MessageGroup className="flex-1 gap-6">
         {submittedQuestion && (
-          <Card className="ml-auto w-full max-w-[85%]" size="sm">
-            <CardContent><p className="whitespace-pre-wrap leading-6">{submittedQuestion}</p></CardContent>
-          </Card>
+          <Message align="end">
+            <MessageContent>
+              <Bubble variant="secondary">
+                <BubbleContent>
+                  <p className="whitespace-pre-wrap leading-6">{submittedQuestion}</p>
+                </BubbleContent>
+              </Bubble>
+            </MessageContent>
+          </Message>
         )}
         {busy && (
-          <Card aria-live="polite">
-            <CardHeader><CardTitle>{t("ask.thinking")}</CardTitle></CardHeader>
-            <CardContent className="flex flex-col gap-3"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /></CardContent>
-          </Card>
+          <Message align="start" aria-live="polite">
+            <MessageContent>
+              <MessageHeader>{t("ask.thinking")}</MessageHeader>
+              <Bubble variant="muted" className="w-full">
+                <BubbleContent className="flex flex-col gap-3 p-4">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-4/5" />
+                </BubbleContent>
+              </Bubble>
+            </MessageContent>
+          </Message>
         )}
         {!busy && result && <Answer result={result} />}
         <ErrorNote error={error} />
-      </div>
+      </MessageGroup>
       <form className="flex items-end gap-2" onSubmit={(event) => void submit(event)}>
         <Textarea
           aria-label={t("ask.question")}

@@ -19,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    command: ["sh", "-c", "python -c 'from knowli.infrastructure.postgres.pool import init; init()' && exec uvicorn knowli.interfaces.http.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /opt/venv/lib/python3.12/site-packages/knowli"]
     environment:
       DATABASE_URL: postgresql://knowli:knowli@db:5432/knowli
       MODEL_BASE_URL: ${MODEL_BASE_URL:-http://host.docker.internal:11434/v1}
@@ -28,6 +29,8 @@ services:
       TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-local}
       TRANSCRIPTION_BASE_URL: ${TRANSCRIPTION_BASE_URL:-http://host.docker.internal:8000/v1}
       COOKIE_SECURE: "false"
+    volumes:
+      - ./backend/knowli:/opt/venv/lib/python3.12/site-packages/knowli
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:
@@ -44,6 +47,9 @@ services:
       context: ./frontend
     environment:
       VITE_API_URL: ""
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       api:
         condition: service_healthy

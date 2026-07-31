@@ -24,9 +24,20 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarRail,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { AuthenticatedUser } from "./router";
 
 const navigation = [
@@ -49,14 +60,14 @@ function initials(name: string) {
 function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
-  const { setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton render={<NavLink to="/" aria-label={t("app.name")} onClick={() => setOpenMobile(false)} />}>
+            <SidebarMenuButton size="lg" render={<NavLink to="/" aria-label={t("app.name")} onClick={() => setOpenMobile(false)} />}>
               <Brand label={t("app.name")} />
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -69,6 +80,7 @@ function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () 
               <SidebarMenuButton
                 render={<NavLink to={to} end={to === "/"} onClick={() => setOpenMobile(false)} />}
                 isActive={to === "/" ? pathname === "/" : pathname.startsWith(to)}
+                tooltip={t(`nav.${key}`)}
               >
                 <Icon aria-hidden="true" />
                 <span>{t(`nav.${key}`)}</span>
@@ -81,17 +93,17 @@ function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () 
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" aria-label={t("shell.accountMenu")} />}>
+              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" aria-label={t("shell.accountMenu")} tooltip={user.display_name} />}>
                 <Avatar size="lg">
                   <AvatarFallback>{initials(user.display_name)}</AvatarFallback>
                 </Avatar>
-                <span className="min-w-0 flex-1 text-left">
+                <span className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
                   <span className="block truncate text-sm font-medium">{user.display_name}</span>
                   <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
                 </span>
-                <ChevronsUpDownIcon aria-hidden="true" data-icon="inline-end" />
+                <ChevronsUpDownIcon aria-hidden="true" data-icon="inline-end" className="group-data-[collapsible=icon]:hidden" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="top">
+              <DropdownMenuContent align="end" side={isMobile ? "bottom" : "right"} sideOffset={4}>
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>
                     <div className="flex flex-col gap-0.5">
@@ -112,36 +124,59 @@ function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () 
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
 
 export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const activeNavItem = navigation.find((item) => item.to === "/" ? pathname === "/" : pathname.startsWith(item.to));
+  const activeTitle = activeNavItem ? t(`nav.${activeNavItem.key}`) : null;
 
   return (
-    <SidebarProvider>
-      <AppSidebar user={user} onLogout={onLogout} />
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b px-4">
-          <SidebarTrigger aria-label={t("shell.openNavigation")} className="md:hidden" />
-          <NavLink to="/" aria-label={t("app.name")} className="md:hidden">
-            <Brand label={t("app.name")} />
-          </NavLink>
-          <div className="ml-auto">
-            <a
-              href="https://github.com/jlfernandezfernandez/knowli"
-              aria-label={t("shell.repository")}
-              rel="noreferrer"
-              target="_blank"
-              className={buttonVariants({ variant: "ghost", size: "icon" })}
-            >
-              <GitHubLogo aria-hidden="true" />
-            </a>
-          </div>
-        </header>
-        <Outlet />
-      </SidebarInset>
-    </SidebarProvider>
+    <TooltipProvider>
+      <SidebarProvider>
+        <AppSidebar user={user} onLogout={onLogout} />
+        <SidebarInset>
+          <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger aria-label={t("shell.openNavigation")} className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem className="hidden md:block">
+                    <BreadcrumbLink render={<NavLink to="/" />}>
+                      {t("app.name")}
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  {activeTitle && (
+                    <>
+                      <BreadcrumbSeparator className="hidden md:block" />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{activeTitle}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="https://github.com/jlfernandezfernandez/knowli"
+                aria-label={t("shell.repository")}
+                rel="noreferrer"
+                target="_blank"
+                className={buttonVariants({ variant: "ghost", size: "icon" })}
+              >
+                <GitHubLogo aria-hidden="true" />
+              </a>
+            </div>
+          </header>
+          <Outlet />
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }
