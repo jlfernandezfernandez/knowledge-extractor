@@ -37,7 +37,6 @@ class AskService:
             return {
                 "answer": "",
                 "citations": [],
-                "sufficient_evidence": False,
             }
         answer = self._model.answer(question, [asdict(claim) for claim in claims])
         retrieved_ids = {claim.id for claim in claims}
@@ -46,7 +45,6 @@ class AskService:
         return {
             "answer": answer.answer,
             "citations": citations,
-            "sufficient_evidence": bool(citations),
         }
 
     @staticmethod

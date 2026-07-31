@@ -26,7 +26,6 @@ class FakeStore:
                 HistoryItem(
                     contribution_id="contribution-1",
                     author="Ada",
-                    source="text",
                     summary="A written rule.",
                     claim_count=1,
                     created_at=datetime(2026, 7, 30, tzinfo=UTC),
@@ -56,7 +55,6 @@ def _claim(claim_id="claim-1"):
         author="Ada",
         contribution_id="contribution-1",
         contribution_created_at=datetime(2026, 7, 29, tzinfo=UTC),
-        score=0.9,
     )
 
 
@@ -80,7 +78,6 @@ def test_ask_returns_only_retrieved_citations_with_exact_provenance():
                 "contribution_created_at": datetime(2026, 7, 29, tzinfo=UTC),
             }
         ],
-        "sufficient_evidence": True,
     }
     assert model.calls[0][1][0]["id"] == "claim-1"
 
@@ -95,13 +92,12 @@ def test_ask_returns_deterministic_insufficient_evidence_without_claims():
     assert result == {
         "answer": "",
         "citations": [],
-        "sufficient_evidence": False,
     }
     assert model.calls == []
 
 
 def test_history_preserves_store_cursor_and_provenance():
-    """Replacing the cursor or dropping author/source would break stable history pages."""
+    """Replacing the cursor or dropping author would break stable history pages."""
     from knowli.application.ask import HistoryService
 
     store = FakeStore([])
@@ -112,7 +108,6 @@ def test_history_preserves_store_cursor_and_provenance():
             {
                 "contribution_id": "contribution-1",
                 "author": "Ada",
-                "source": "text",
                 "summary": "A written rule.",
                 "claim_count": 1,
                 "created_at": datetime(2026, 7, 30, tzinfo=UTC),

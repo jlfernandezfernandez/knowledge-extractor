@@ -47,9 +47,7 @@ def capture(
     user: CurrentUserDep,
     service: ContributionServiceDep,
 ) -> dict:
-    if not body.raw_text.strip():
-        raise HTTPException(status_code=400, detail="raw_text is empty")
-    return service.capture(user.id, body.raw_text, body.source)
+    return service.capture(user.id, body.raw_text)
 
 
 @router.get("/{contribution_id}", response_model=ContributionResponse)

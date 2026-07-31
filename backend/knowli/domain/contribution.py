@@ -19,8 +19,6 @@ class StoredContribution:
     id: str
     author_id: str
     author: str
-    kind: str
-    source: str
     raw_text: str
     stage: ContributionStage
     revision: int
@@ -34,7 +32,6 @@ class StoredContribution:
 class HistoryItem:
     contribution_id: str
     author: str
-    source: str
     summary: str
     claim_count: int
     created_at: datetime

@@ -1,7 +1,7 @@
 """Public HTTP request and response values."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -42,7 +42,6 @@ class ContributionCaptureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     raw_text: str
-    source: Literal["text"] = "text"
 
 
 class InterviewCreateRequest(BaseModel):
@@ -88,13 +87,11 @@ class CitationResponse(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     citations: list[CitationResponse]
-    sufficient_evidence: bool
 
 
 class HistoryItemResponse(BaseModel):
     contribution_id: str
     author: str
-    source: str
     summary: str
     claim_count: int
     created_at: datetime
@@ -123,8 +120,6 @@ class ContributionResponse(BaseModel):
     id: str
     author_id: str
     author: str
-    kind: str
-    source: str
     raw_text: str
     stage: ContributionStage
     revision: int

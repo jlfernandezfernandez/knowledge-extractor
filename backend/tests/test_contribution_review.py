@@ -29,7 +29,7 @@ class MemoryContributionStore:
         self.contribution_interviews: dict[str, str] = {}
         self._next_id = 0
 
-    def create_contribution(self, author_id, raw_text, source, interview_id=None):
+    def create_contribution(self, author_id, raw_text, interview_id=None):
         if interview_id is not None and interview_id not in self.interviews:
             raise ContributionNotFound(interview_id)
         self._next_id += 1
@@ -38,8 +38,6 @@ class MemoryContributionStore:
             id=contribution_id,
             author_id=author_id,
             author=f"User {author_id}",
-            kind="interview" if interview_id else "voluntary",
-            source=source,
             raw_text=raw_text,
             stage="claims",
             revision=0,
@@ -152,11 +150,10 @@ def test_capture_review_conflicts_and_commit_are_resumable(service):
             author="Ada",
             contribution_id="22222222-2222-2222-2222-222222222222",
             contribution_created_at=datetime(2026, 7, 1, tzinfo=UTC),
-            score=0.9,
         )
     ]
 
-    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    captured = review.capture("author-1", "Deploy on Tuesdays.")
     draft_key = captured["claims"][0]["draft_key"]
     confirmed = review.confirm_claims(
         "author-1", captured["id"], captured["revision"], captured["claims"]
@@ -184,7 +181,7 @@ def test_capture_review_conflicts_and_commit_are_resumable(service):
 
 def test_edit_and_rewind_preserve_uuid_key_derived_from_position(service):
     review, _, _ = service
-    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    captured = review.capture("author-1", "Deploy on Tuesdays.")
     original_key = captured["claims"][0]["draft_key"]
     edited = [{**captured["claims"][0], "statement": "Deploy on Wednesdays."}]
 
@@ -201,7 +198,7 @@ def test_edit_and_rewind_preserve_uuid_key_derived_from_position(service):
 
 def test_stale_revision_and_non_author_are_rejected(service):
     review, _, _ = service
-    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    captured = review.capture("author-1", "Deploy on Tuesdays.")
 
     with pytest.raises(StaleRevision):
         review.confirm_claims("author-1", captured["id"], 0, captured["claims"])
@@ -211,7 +208,7 @@ def test_stale_revision_and_non_author_are_rejected(service):
 
 def test_commit_retry_returns_the_same_result_without_duplicate_claims(service):
     review, store, _ = service
-    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    captured = review.capture("author-1", "Deploy on Tuesdays.")
     conflicts = review.confirm_claims(
         "author-1", captured["id"], captured["revision"], captured["claims"]
     )
@@ -237,7 +234,6 @@ def test_interview_brief_is_not_added_to_extractable_text(service):
     )
 
     assert captured["raw_text"] == "My answer only."
-    assert captured["kind"] == "interview"
     assert store.contribution_interviews[captured["id"]] == interview_id
     assert model.extracted_texts == ["My answer only."]
     assert brief not in model.extracted_texts[0]
@@ -245,7 +241,7 @@ def test_interview_brief_is_not_added_to_extractable_text(service):
 
 def test_public_review_methods_accept_the_documented_id_keyword(service):
     review, _, _ = service
-    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    captured = review.capture("author-1", "Deploy on Tuesdays.")
 
     confirmed = review.confirm_claims(
         user_id="author-1",
@@ -279,10 +275,9 @@ def _review_waiting_on_a_conflict(service):
             author="Ada",
             contribution_id="22222222-2222-2222-2222-222222222222",
             contribution_created_at=datetime(2026, 7, 1, tzinfo=UTC),
-            score=0.9,
         )
     ]
-    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    captured = review.capture("author-1", "Deploy on Tuesdays.")
     return review, review.confirm_claims(
         "author-1", captured["id"], captured["revision"], captured["claims"]
     )
@@ -322,7 +317,7 @@ def test_conflict_resolutions_reject_duplicate_draft_keys(service):
 
 def test_keep_old_cannot_remove_a_conflict_free_draft(service):
     review, _, _ = service
-    captured = review.capture("author-1", "Deploy on Tuesdays.", "text")
+    captured = review.capture("author-1", "Deploy on Tuesdays.")
     confirmed = review.confirm_claims(
         "author-1", captured["id"], captured["revision"], captured["claims"]
     )

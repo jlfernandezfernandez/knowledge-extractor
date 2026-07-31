@@ -35,9 +35,7 @@ CREATE INDEX interview_assignee_status_created_idx
 CREATE TABLE contribution (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   author_id uuid NOT NULL REFERENCES app_user(id),
-  kind text NOT NULL CHECK (kind IN ('voluntary', 'interview')),
   interview_id uuid UNIQUE REFERENCES interview(id),
-  source text NOT NULL,
   raw_text text NOT NULL DEFAULT '',
   stage text NOT NULL CHECK (stage IN ('claims', 'conflicts', 'commit', 'committed')),
   summary text NOT NULL DEFAULT '',

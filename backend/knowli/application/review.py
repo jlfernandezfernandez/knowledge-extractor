@@ -239,24 +239,22 @@ class ContributionService:
         self,
         user_id: str,
         raw_text: str,
-        source: str,
     ) -> dict[str, Any]:
-        return self._capture(user_id, raw_text, source)
+        return self._capture(user_id, raw_text)
 
     def capture_interview_answer(
         self, user_id: str, raw_text: str, interview_id: str
     ) -> dict[str, Any]:
-        return self._capture(user_id, raw_text, "text", interview_id)
+        return self._capture(user_id, raw_text, interview_id)
 
     def _capture(
         self,
         user_id: str,
         raw_text: str,
-        source: str,
         interview_id: str | None = None,
     ) -> dict[str, Any]:
         contribution = self._store.create_contribution(
-            user_id, raw_text, source, interview_id
+            user_id, raw_text, interview_id
         )
         self._graph.invoke(
             {

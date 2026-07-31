@@ -1,4 +1,4 @@
-"""PostgreSQL-backed modular stores implementing domain ports."""
+"""The PostgreSQL-backed global contribution, interview, and session store."""
 
 import base64
 import json
@@ -19,11 +19,27 @@ from ...domain.user import DuplicateEmail, User, UserCredentials
 from .pool import pool as configured_pool
 
 
-class PostgresUserStore:
-    """Manages user identity and session persistence."""
+class PostgresStore:
+    """The PostgreSQL-backed implementation of all domain store ports."""
 
     def __init__(self, connection_pool: ConnectionPool | None = None):
         self._pool = connection_pool or configured_pool()
+
+    @staticmethod
+    def _stored(row: tuple) -> StoredContribution:
+        return StoredContribution(
+            id=row[0], author_id=row[1], author=row[2], raw_text=row[3],
+            stage=row[4], revision=row[5], summary=row[6], created_at=row[7],
+            committed_at=row[8], claim_count=row[9],
+        )
+
+    @staticmethod
+    def _interview(row: tuple) -> Interview:
+        return Interview(
+            id=row[0], requester_id=row[1], assignee_id=row[2], title=row[3],
+            brief=row[4] or "", status=row[5], created_at=row[6], started_at=row[7],
+            completed_at=row[8],
+        )
 
     def create_user(self, email: str, display_name: str, password_hash: str) -> User:
         try:
@@ -94,21 +110,6 @@ class PostgresUserStore:
     def delete_user_sessions(self, user_id: str) -> None:
         with self._pool.connection() as connection:
             connection.execute("DELETE FROM login_session WHERE user_id = %s", (user_id,))
-
-
-class PostgresInterviewStore:
-    """Manages interview requests and lifecycle."""
-
-    def __init__(self, connection_pool: ConnectionPool | None = None):
-        self._pool = connection_pool or configured_pool()
-
-    @staticmethod
-    def _interview(row: tuple) -> Interview:
-        return Interview(
-            id=row[0], requester_id=row[1], assignee_id=row[2], title=row[3],
-            brief=row[4] or "", status=row[5], created_at=row[6], started_at=row[7],
-            completed_at=row[8],
-        )
 
     def create_interview(
         self, requester_id: str, assignee_id: str, title: str, brief: str
@@ -189,8 +190,8 @@ class PostgresInterviewStore:
                 interview = self._interview(row)
             contribution_row = connection.execute(
                 """INSERT INTO contribution
-                   (author_id, kind, interview_id, source, raw_text, stage)
-                   VALUES (%s, 'interview', %s, 'text', '', 'claims')
+                   (author_id, interview_id, raw_text, stage)
+                   VALUES (%s, %s, '', 'claims')
                    ON CONFLICT (interview_id) DO UPDATE SET interview_id = EXCLUDED.interview_id
                    RETURNING id::text""",
                 (assignee_id, interview_id),
@@ -198,53 +199,37 @@ class PostgresInterviewStore:
             assert contribution_row is not None
             return InterviewStart(interview, contribution_row[0])
 
-
-class PostgresContributionStore:
-    """Manages contributions, claims, search, and history."""
-
-    def __init__(self, connection_pool: ConnectionPool | None = None):
-        self._pool = connection_pool or configured_pool()
-
-    @staticmethod
-    def _stored(row: tuple) -> StoredContribution:
-        return StoredContribution(
-            id=row[0], author_id=row[1], author=row[2], kind=row[3], source=row[4],
-            raw_text=row[5], stage=row[6], revision=row[7], summary=row[8],
-            created_at=row[9], committed_at=row[10], claim_count=row[11],
-        )
-
     def create_contribution(
-        self, author_id: str, raw_text: str, source: str, interview_id: str | None = None
+        self, author_id: str, raw_text: str, interview_id: str | None = None
     ) -> StoredContribution:
-        kind = "interview" if interview_id else "voluntary"
         with self._pool.connection() as connection:
             if interview_id is None:
                 contribution_id = str(connection.execute(
                     """INSERT INTO contribution
-                       (author_id, kind, interview_id, source, raw_text, stage)
-                       VALUES (%s, %s, %s, %s, %s, 'claims')
+                       (author_id, interview_id, raw_text, stage)
+                       VALUES (%s, %s, %s, 'claims')
                        RETURNING id""",
-                    (author_id, kind, interview_id, source, raw_text),
+                    (author_id, interview_id, raw_text),
                 ).fetchone()[0])
             else:
                 row = connection.execute(
                     """INSERT INTO contribution
-                       (author_id, kind, interview_id, source, raw_text, stage)
-                       VALUES (%s, 'interview', %s, %s, %s, 'claims')
+                       (author_id, interview_id, raw_text, stage)
+                       VALUES (%s, %s, %s, 'claims')
                        ON CONFLICT (interview_id) DO UPDATE
                        SET raw_text = EXCLUDED.raw_text, updated_at = now()
                        WHERE contribution.author_id = EXCLUDED.author_id
                          AND contribution.raw_text = ''
                          AND contribution.stage = 'claims'
                        RETURNING id""",
-                    (author_id, interview_id, source, raw_text),
+                    (author_id, interview_id, raw_text),
                 ).fetchone()
                 if row is None:
                     raise ContributionNotFound(interview_id)
                 contribution_id = str(row[0])
 
             stored = connection.execute(
-                """SELECT c.id::text, c.author_id::text, author.display_name, c.kind, c.source,
+                """SELECT c.id::text, c.author_id::text, author.display_name,
                           c.raw_text, c.stage, c.revision, c.summary, c.created_at,
                           c.committed_at, count(claim.id)
                    FROM contribution c
@@ -260,7 +245,7 @@ class PostgresContributionStore:
     def get_contribution(self, contribution_id: str) -> StoredContribution | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                """SELECT c.id::text, c.author_id::text, u.display_name, c.kind, c.source,
+                """SELECT c.id::text, c.author_id::text, u.display_name,
                           c.raw_text, c.stage, c.revision, c.summary, c.created_at,
                           c.committed_at, count(claim.id)
                    FROM contribution c
@@ -281,18 +266,17 @@ class PostgresContributionStore:
                        UPDATE contribution
                        SET stage = %s, summary = %s, revision = revision + 1, updated_at = now()
                        WHERE id = %s AND revision = %s AND stage <> 'committed'
-                       RETURNING id, author_id, kind, source, raw_text, stage, revision,
+                       RETURNING id, author_id, raw_text, stage, revision,
                                  summary, created_at, committed_at
                    )
                    SELECT updated.id::text, updated.author_id::text, author.display_name,
-                          updated.kind, updated.source, updated.raw_text, updated.stage,
-                          updated.revision, updated.summary, updated.created_at,
-                          updated.committed_at, count(claim.id)
+                          updated.raw_text, updated.stage, updated.revision,
+                          updated.summary, updated.created_at, updated.committed_at, count(claim.id)
                    FROM updated
                    JOIN app_user author ON author.id = updated.author_id
                    LEFT JOIN claim ON claim.contribution_id = updated.id
-                   GROUP BY updated.id, updated.author_id, author.display_name, updated.kind,
-                            updated.source, updated.raw_text, updated.stage, updated.revision,
+                   GROUP BY updated.id, updated.author_id, author.display_name,
+                            updated.raw_text, updated.stage, updated.revision,
                             updated.summary, updated.created_at, updated.committed_at""",
                 (stage, summary, contribution_id, expected_revision),
             ).fetchone()
@@ -333,7 +317,7 @@ class PostgresContributionStore:
                     ).fetchone() is None:
                         raise StaleRevision(contribution_id)
                 row = connection.execute(
-                    """SELECT c.id::text, c.author_id::text, author.display_name, c.kind, c.source,
+                    """SELECT c.id::text, c.author_id::text, author.display_name,
                               c.raw_text, c.stage, c.revision, c.summary, c.created_at,
                               c.committed_at, count(claim.id)
                        FROM contribution c
@@ -383,7 +367,7 @@ class PostgresContributionStore:
                     (contribution_id,),
                 )
             row = connection.execute(
-                """SELECT c.id::text, c.author_id::text, author.display_name, c.kind, c.source,
+                """SELECT c.id::text, c.author_id::text, author.display_name,
                           c.raw_text, c.stage, c.revision, c.summary, c.created_at,
                           c.committed_at, count(claim.id)
                    FROM contribution c
@@ -417,23 +401,21 @@ class PostgresContributionStore:
                        LIMIT %s
                    )
                    SELECT claim.id::text, claim.title, claim.statement, claim.tags,
-                          author.display_name, contribution.id::text, contribution.created_at,
-                          COALESCE(1.0 / (60 + semantic.rank), 0)
-                        + COALESCE(1.0 / (60 + lexical.rank), 0) AS score
+                          author.display_name, contribution.id::text, contribution.created_at
                    FROM claim
                    JOIN contribution ON contribution.id = claim.contribution_id
                    JOIN app_user author ON author.id = contribution.author_id
                    LEFT JOIN semantic ON semantic.id = claim.id
                    LEFT JOIN lexical ON lexical.id = claim.id
                    WHERE semantic.id IS NOT NULL OR lexical.id IS NOT NULL
-                   ORDER BY score DESC, claim.id
+                   ORDER BY COALESCE(1.0 / (60 + semantic.rank), 0) + COALESCE(1.0 / (60 + lexical.rank), 0) DESC, claim.id
                    LIMIT %s""",
                 (query_embedding, query_embedding, candidate_limit, query_text, candidate_limit, limit),
             ).fetchall()
         return [
             ClaimSearchResult(
                 id=row[0], title=row[1], statement=row[2], tags=tuple(row[3]), author=row[4],
-                contribution_id=row[5], contribution_created_at=row[6], score=float(row[7]),
+                contribution_id=row[5], contribution_created_at=row[6],
             )
             for row in rows
         ]
@@ -461,7 +443,7 @@ class PostgresContributionStore:
         created_at, contribution_id = self._decode_history_cursor(cursor)
         with self._pool.connection() as connection:
             rows = connection.execute(
-                """SELECT contribution.id::text, author.display_name, contribution.source,
+                """SELECT contribution.id::text, author.display_name,
                           contribution.summary, count(claim.id), contribution.created_at
                    FROM contribution
                    JOIN app_user author ON author.id = contribution.author_id
@@ -476,16 +458,9 @@ class PostgresContributionStore:
             ).fetchall()
         items = [
             HistoryItem(
-                contribution_id=row[0], author=row[1], source=row[2], summary=row[3],
-                claim_count=row[4], created_at=row[5],
+                contribution_id=row[0], author=row[1], summary=row[2],
+                claim_count=row[3], created_at=row[4],
             )
             for row in rows[:limit]
         ]
         return items, self._history_cursor(items[-1]) if len(rows) > limit else None
-
-
-class PostgresStore(PostgresUserStore, PostgresInterviewStore, PostgresContributionStore):
-    """Composition root repository implementing all domain store ports."""
-
-    def __init__(self, connection_pool: ConnectionPool | None = None):
-        super().__init__(connection_pool=connection_pool)

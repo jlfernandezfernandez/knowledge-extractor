@@ -104,7 +104,7 @@ def seed_database(services: AppServices | None = None) -> None:
         for item in INITIAL_SEED_KNOWLEDGE:
             raw_text = item["source_text"]
             contribution = services.store.create_contribution(
-                demo_user.id, raw_text, source="text"
+                demo_user.id, raw_text
             )
 
             claims_to_commit = []
@@ -133,7 +133,6 @@ def seed_database(services: AppServices | None = None) -> None:
         services.store.create_contribution(
             alice_user.id,
             "Política de retención de logs y auditoría en entornos locales.",
-            source="text",
         )
 
         # Seed 1 pending interview from Alice to Demo

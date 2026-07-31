@@ -29,7 +29,7 @@ class Transcriber(Protocol):
 
 class ContributionStore(Protocol):
     def create_contribution(
-        self, author_id: str, raw_text: str, source: str, interview_id: str | None = None
+        self, author_id: str, raw_text: str, interview_id: str | None = None
     ) -> StoredContribution: ...
 
     def get_contribution(self, contribution_id: str) -> StoredContribution | None: ...

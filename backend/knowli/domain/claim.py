@@ -41,7 +41,6 @@ class ClaimSearchResult:
     author: str
     contribution_id: str
     contribution_created_at: datetime
-    score: float
 
 
 @dataclass(frozen=True)

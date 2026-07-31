@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from knowli.domain.contribution import StoredContribution
 from knowli.domain.user import User
 
 
@@ -38,8 +37,6 @@ class MemoryInterviewStore:
         return interview
 
     def list_interviews(self, user_id, view):
-        from dataclasses import replace
-
         interviews = list(self.interviews.values())
         if view == "pending":
             return [item for item in interviews if item.assignee_id == user_id and item.status == "pending"]
