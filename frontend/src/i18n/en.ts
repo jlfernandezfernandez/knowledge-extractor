@@ -1,7 +1,6 @@
 export const en = {
   app: {
     name: "Knowli",
-    tagline: "Shared knowledge, reviewed by people",
   },
   nav: {
     home: "Knowledge",
@@ -23,32 +22,14 @@ export const en = {
     displayName: "Name",
     email: "Email",
     password: "Password",
-    failed: "Something went wrong. Please try again.",
     login: { title: "Sign in", submit: "Sign in", alternate: "Create an account" },
     register: { title: "Create account", submit: "Create account", alternate: "Sign in instead" },
   },
   conflicts: {
-    step: "Step 3 of 4",
-    titleNone: "Nothing to decide",
-    title_one: "{{count}} overlap",
-    title_other: "{{count}} overlaps",
-    leadNone: "None of this contradicts what's stored.",
-    lead: "Each one is answered already. Change the ones you disagree with.",
-    stored: "Stored",
-    yours: "Yours",
-    verdict: {
-      conflict: "Contradicts",
-      duplicate: "Already stored",
-      refines: "Adds detail",
-    },
     keep_new: "Use yours",
     keep_old: "Keep stored",
     keep_both: "Keep both",
     merge: "Combine",
-    mergeLabel: "Replaces both",
-    submit: "Save",
-    changed_one: "{{count}} changed",
-    changed_other: "{{count}} changed",
   },
   ask: {
     title: "Ask anything",
@@ -70,7 +51,6 @@ export const en = {
   history: {
     title: "History",
     lead: "Your saved contributions, newest first.",
-    provenance: "{{author}} · {{date}}",
     claimCount_one: "{{count}} claim",
     claimCount_other: "{{count}} claims",
     sources: { text: "Text", interview: "Interview" },

@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpenIcon, ChevronsUpDownIcon, HistoryIcon, LogOutIcon, MenuIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
+import { BookOpenIcon, ChevronsUpDownIcon, HistoryIcon, LogOutIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { GitHubLogo } from "@/components/github-logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,8 +14,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import type { AuthenticatedUser } from "./router";
 
 const navigation = [
@@ -36,48 +46,42 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function Navigation({ onNavigate }: { onNavigate?: () => void }) {
+function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const { setOpenMobile } = useSidebar();
 
   return (
-    <nav aria-label={t("shell.primaryNavigation")} className="flex flex-col gap-1">
-      {navigation.map(({ to, key, icon: Icon }) => {
-        return (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                "flex h-9 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                isActive && "bg-muted text-foreground",
-              )
-            }
-          >
-            <Icon aria-hidden="true" />
-            <span>{t(`nav.${key}`)}</span>
-          </NavLink>
-        );
-      })}
-    </nav>
-  );
-}
-
-export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
-  const { t } = useTranslation();
-  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
-
-  return (
-    <div className="min-h-dvh bg-background md:grid md:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="hidden min-h-dvh flex-col border-r bg-muted/20 p-2 md:flex">
-          <NavLink to="/" aria-label={t("app.name")} className="mb-4 flex h-9 items-center rounded-lg px-2">
-            <Brand label={t("app.name")} />
-          </NavLink>
-          <Navigation />
-          <div className="mt-auto">
+    <Sidebar>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton render={<NavLink to="/" aria-label={t("app.name")} onClick={() => setOpenMobile(false)} />}>
+              <Brand label={t("app.name")} />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarMenu>
+          {navigation.map(({ to, key, icon: Icon }) => (
+            <SidebarMenuItem key={to}>
+              <SidebarMenuButton
+                render={<NavLink to={to} end={to === "/"} onClick={() => setOpenMobile(false)} />}
+                isActive={to === "/" ? pathname === "/" : pathname.startsWith(to)}
+              >
+                <Icon aria-hidden="true" />
+                <span>{t(`nav.${key}`)}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button aria-label={t("shell.accountMenu")} variant="ghost" className="h-auto w-full justify-start px-2 py-2" />}>
+              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" aria-label={t("shell.accountMenu")} />}>
                 <Avatar size="lg">
                   <AvatarFallback>{initials(user.display_name)}</AvatarFallback>
                 </Avatar>
@@ -105,43 +109,38 @@ export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        </aside>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
 
-        <div className="min-w-0">
-          <header className="flex h-14 items-center gap-3 border-b px-4">
-            <div className="flex items-center gap-3 md:hidden">
-              <Sheet open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
-                <SheetTrigger render={<Button aria-label={t("shell.openNavigation")} variant="ghost" size="icon" />}>
-                  <MenuIcon aria-hidden="true" />
-                </SheetTrigger>
-                <SheetContent side="left" className="w-72 p-4" showCloseButton={false}>
-                  <SheetHeader className="p-0">
-                    <SheetTitle className="sr-only">{t("shell.primaryNavigation")}</SheetTitle>
-                    <Brand label={t("app.name")} />
-                  </SheetHeader>
-                  <Navigation onNavigate={() => setMobileNavigationOpen(false)} />
-                </SheetContent>
-              </Sheet>
-              <NavLink to="/" aria-label={t("app.name")}>
-                <Brand label={t("app.name")} />
-              </NavLink>
-            </div>
-            <div className="ml-auto">
-              <Button
-                aria-label={t("shell.repository")}
-                variant="ghost"
-                size="icon"
-                render={<a href="https://github.com/jlfernandezfernandez/knowli" rel="noreferrer" target="_blank" />}
-              >
-                <GitHubLogo aria-hidden="true" />
-              </Button>
-            </div>
-          </header>
-          <main>
-            <Outlet />
-          </main>
-        </div>
-      </div>
+export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <SidebarProvider>
+      <AppSidebar user={user} onLogout={onLogout} />
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-3 border-b px-4">
+          <SidebarTrigger aria-label={t("shell.openNavigation")} className="md:hidden" />
+          <NavLink to="/" aria-label={t("app.name")} className="md:hidden">
+            <Brand label={t("app.name")} />
+          </NavLink>
+          <div className="ml-auto">
+            <Button
+              aria-label={t("shell.repository")}
+              variant="ghost"
+              size="icon"
+              render={<a href="https://github.com/jlfernandezfernandez/knowli" rel="noreferrer" target="_blank" />}
+            >
+              <GitHubLogo aria-hidden="true" />
+            </Button>
+          </div>
+        </header>
+        <Outlet />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

@@ -11,7 +11,6 @@ from .domain.user import DuplicateEmail, User
 from .wiring import AppServices
 
 ALICE_EMAIL = "alice@knowli.local"
-ALICE_PASSWORD = "demo"
 ALICE_DISPLAY_NAME = "Alice Developer"
 
 logger = logging.getLogger(__name__)

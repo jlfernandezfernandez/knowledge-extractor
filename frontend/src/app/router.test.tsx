@@ -34,6 +34,7 @@ describe("application router", () => {
   });
 
   afterEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1024 });
     vi.unstubAllGlobals();
   });
 
@@ -80,6 +81,7 @@ describe("application router", () => {
   });
 
   it("opens a mobile navigation with all destinations", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 390 });
     renderRoute("/");
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
     const mobileNavigation = within(screen.getByRole("dialog"));

@@ -5,7 +5,6 @@ from typing import Literal
 from pydantic import BaseModel, model_validator
 
 Decision = Literal["keep_new", "keep_old", "keep_both", "merge"]
-Verdict = Literal["conflict", "duplicate", "refines", "unrelated"]
 
 
 class ConflictResolution(BaseModel):

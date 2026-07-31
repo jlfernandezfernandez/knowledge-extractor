@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from ... import config, wiring
-from ...application.auth import AuthService
+from ...application.auth import AuthService, SessionExpired
 from ...domain.user import User
 from .schemas import AuthResponse, LoginRequest, RegisterRequest, UserResponse, UsersResponse
 
@@ -24,8 +24,6 @@ AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 def require_user(request: Request) -> User:
     token = request.cookies.get(COOKIE)
     if token is None:
-        from ...application.auth import SessionExpired
-
         raise SessionExpired()
     override = request.app.dependency_overrides.get(get_auth_service)
     service = override() if override is not None else get_auth_service(request)

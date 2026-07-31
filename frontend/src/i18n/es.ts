@@ -1,11 +1,8 @@
 import type { en } from "./en";
 
-// Typed against the English catalogue, so a missing or misspelled key is a
-// compile error rather than a string that silently falls back at runtime.
 export const es: typeof en = {
   app: {
     name: "Knowli",
-    tagline: "Conocimiento compartido, revisado por personas",
   },
   nav: {
     home: "Conocimiento",
@@ -27,32 +24,14 @@ export const es: typeof en = {
     displayName: "Nombre",
     email: "Correo electrónico",
     password: "Contraseña",
-    failed: "Algo ha salido mal. Vuelve a intentarlo.",
     login: { title: "Iniciar sesión", submit: "Iniciar sesión", alternate: "Crear una cuenta" },
     register: { title: "Crear cuenta", submit: "Crear cuenta", alternate: "Inicia sesión" },
   },
   conflicts: {
-    step: "Paso 3 de 4",
-    titleNone: "Nada que decidir",
-    title_one: "{{count}} solape",
-    title_other: "{{count}} solapes",
-    leadNone: "Nada de esto contradice lo que ya está guardado.",
-    lead: "Cada uno viene ya respondido. Cambia los que no te convenzan.",
-    stored: "Guardado",
-    yours: "Lo tuyo",
-    verdict: {
-      conflict: "Se contradicen",
-      duplicate: "Ya estaba",
-      refines: "Añade detalle",
-    },
     keep_new: "Usar lo tuyo",
     keep_old: "Dejar lo guardado",
     keep_both: "Dejar los dos",
     merge: "Combinar",
-    mergeLabel: "Sustituye a los dos",
-    submit: "Guardar",
-    changed_one: "{{count}} cambiado",
-    changed_other: "{{count}} cambiados",
   },
   ask: {
     title: "Pregunta algo",
@@ -74,7 +53,6 @@ export const es: typeof en = {
   history: {
     title: "Historial",
     lead: "Tus aportaciones guardadas, empezando por las más recientes.",
-    provenance: "{{author}} · {{date}}",
     claimCount_one: "{{count}} idea",
     claimCount_other: "{{count}} ideas",
     sources: { text: "Texto", interview: "Entrevista" },
@@ -124,7 +102,7 @@ export const es: typeof en = {
   review: {
     loading: "Cargando aportación…",
     progress: "Etapa: {{stage}}",
-    stages: { claims: "Revisar ideas", conflicts: "Resolver conflictos", commit: "Listo para guardar", committed: "Guardado" },
+    stages: { claims: "Revisar ideas", conflicts: "Resolver conflictos", commit: "Listo para guardar", completed: "Guardado" },
     claimTitle: "Título de la idea",
     claimStatement: "Texto de la idea",
     mergedStatement: "Texto combinado",

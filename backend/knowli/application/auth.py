@@ -37,18 +37,7 @@ class AuthResult:
     token: str
 
 
-def ensure_demo_account(store: SessionStore) -> None:
-    """Create the documented local demo account once, without changing it."""
-    if store.get_user_credentials(DEMO_EMAIL) is not None:
-        return
-    try:
-        store.create_user(
-            DEMO_EMAIL,
-            DEMO_DISPLAY_NAME,
-            PasswordHash.recommended().hash(DEMO_PASSWORD),
-        )
-    except DuplicateEmail:
-        pass
+
 
 
 class AuthService:

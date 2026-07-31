@@ -12,11 +12,11 @@ from .schemas import HistoryResponse
 router = APIRouter(prefix="/api", tags=["history"])
 
 
-def get_ask_service(request: Request, _: CurrentUserDep) -> HistoryService:
+def get_history_service(request: Request) -> HistoryService:
     return wiring.services(request.app).history
 
 
-HistoryServiceDep = Annotated[HistoryService, Depends(get_ask_service)]
+HistoryServiceDep = Annotated[HistoryService, Depends(get_history_service)]
 
 
 @router.get("/history", response_model=HistoryResponse)

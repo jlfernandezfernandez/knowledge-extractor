@@ -8,7 +8,6 @@ from ... import config
 from .migrations import run_migrations
 
 _pool: ConnectionPool | None = None
-_checkpoint_pool: ConnectionPool | None = None
 
 
 def create_pool() -> ConnectionPool:
@@ -30,19 +29,6 @@ def pool() -> ConnectionPool:
     if _pool is None:
         _pool = create_pool()
     return _pool
-
-
-def checkpoint_pool() -> ConnectionPool:
-    """A separate pool for LangGraph's checkpointer.
-
-    It needs autocommit: its migrations use CREATE INDEX CONCURRENTLY, which
-    Postgres refuses to run inside a transaction block. `prepare_threshold=0`
-    is what LangGraph's own docs recommend alongside it.
-    """
-    global _checkpoint_pool
-    if _checkpoint_pool is None:
-        _checkpoint_pool = create_checkpoint_pool()
-    return _checkpoint_pool
 
 
 def init() -> None:
