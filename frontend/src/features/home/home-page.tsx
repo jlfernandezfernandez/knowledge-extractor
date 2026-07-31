@@ -10,6 +10,13 @@ import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Attachment,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment";
 import { contributionsApi } from "@/features/contributions/api";
 import { interviewsApi, type Interview } from "@/features/interviews/api";
 
@@ -135,6 +142,21 @@ export function HomePage() {
           className="mt-6 min-h-36 resize-y"
           placeholder={t("home.placeholder")}
         />
+        {(recording || transcribing) && (
+          <Attachment className="mt-3" state={transcribing ? "processing" : "idle"} size="sm">
+            <AttachmentMedia>
+              {transcribing ? <Spinner /> : <MicIcon />}
+            </AttachmentMedia>
+            <AttachmentContent>
+              <AttachmentTitle>
+                {transcribing ? "Transcribiendo audio..." : "Grabando audio de voz..."}
+              </AttachmentTitle>
+              <AttachmentDescription>
+                {transcribing ? "Procesando transcripción con el modelo configurado" : "Haz clic en detener cuando termines de hablar"}
+              </AttachmentDescription>
+            </AttachmentContent>
+          </Attachment>
+        )}
         <div className="mt-3 flex items-center justify-between">
           <Button
             aria-label={t(recording ? "home.stopRecording" : "home.recordAudio")}
