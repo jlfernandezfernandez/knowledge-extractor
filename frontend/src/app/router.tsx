@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Navigate, RouterProvider, createBrowserRouter, type RouteObject } from "react-router";
 import { useTranslation } from "react-i18next";
-import { PageState } from "@/components/page-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AuthScreen } from "@/features/auth/auth-screen";
 import { useAuth } from "@/features/auth/auth-provider";
 import { HomePage } from "@/features/home/home-page";
@@ -55,6 +55,15 @@ export function AppRouter() {
     [logout, user],
   );
 
-  if (status === "loading") return <PageState loading title={t("pages.loading.title")} description={t("pages.loading.description")} />;
+  if (status === "loading") {
+    return (
+      <main className="flex min-h-dvh items-center justify-center">
+        <div role="status">
+          <Skeleton className="h-8 w-48" />
+          <span className="sr-only">{t("pages.loading.title")}</span>
+        </div>
+      </main>
+    );
+  }
   return <RouterProvider router={router} />;
 }

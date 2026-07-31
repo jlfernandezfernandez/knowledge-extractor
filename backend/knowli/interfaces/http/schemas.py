@@ -1,7 +1,7 @@
 """Public HTTP request and response values."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -34,11 +34,15 @@ class AuthResponse(BaseModel):
     user: UserResponse
 
 
+class TranscriptionResponse(BaseModel):
+    text: str
+
+
 class ContributionCaptureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     raw_text: str
-    source: str = "text"
+    source: Literal["text"] = "text"
 
 
 class InterviewCreateRequest(BaseModel):

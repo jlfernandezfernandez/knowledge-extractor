@@ -46,9 +46,13 @@ def checkpoint_pool() -> ConnectionPool:
 
 
 def init() -> None:
-    """Prepare pgvector before the configured pool, then run migrations once."""
+    """Prepare PostgreSQL, run migrations, and create the local demo account."""
+    from ...application.auth import ensure_demo_account
+    from .repository import PostgresStore
+
     # register_vector() looks up PostgreSQL's vector type. Bootstrap it through
     # a bare connection first so a fresh install can construct the normal pool.
     with psycopg.connect(config.DATABASE_URL, autocommit=True) as conn:
         conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
     run_migrations(pool())
+    ensure_demo_account(PostgresStore(pool()))

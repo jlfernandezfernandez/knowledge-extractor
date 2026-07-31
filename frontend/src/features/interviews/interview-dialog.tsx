@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { interviewsApi, type Interview } from "./api";
 
@@ -61,22 +62,22 @@ export function InterviewDialog({ onCreated }: { onCreated: (interview: Intervie
           <DialogTitle>{t("interviews.dialog.title")}</DialogTitle>
           <DialogDescription>{t("interviews.dialog.description")}</DialogDescription>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={(event) => void submit(event)}>
-          <div className="space-y-2">
+        <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="assignee">{t("interviews.dialog.assignee")}</Label>
-            <select
+            <NativeSelect
               id="assignee"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full"
               disabled={peopleLoading || people.length === 0}
               value={assigneeId}
               onChange={(event) => setAssigneeId(event.target.value)}
             >
-              <option value="">{peopleLoading ? t("interviews.dialog.loadingPeople") : t("interviews.dialog.assigneePlaceholder")}</option>
-              {people.map((person) => <option key={person.id} value={person.id}>{personLabel(person)}</option>)}
-            </select>
+              <NativeSelectOption value="">{peopleLoading ? t("interviews.dialog.loadingPeople") : t("interviews.dialog.assigneePlaceholder")}</NativeSelectOption>
+              {people.map((person) => <NativeSelectOption key={person.id} value={person.id}>{personLabel(person)}</NativeSelectOption>)}
+            </NativeSelect>
           </div>
-          <div className="space-y-2"><Label htmlFor="interview-title">{t("interviews.dialog.titleLabel")}</Label><Input id="interview-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div>
-          <div className="space-y-2"><Label htmlFor="interview-brief">{t("interviews.dialog.brief")}</Label><Textarea id="interview-brief" value={brief} onChange={(event) => setBrief(event.target.value)} /></div>
+          <div className="flex flex-col gap-2"><Label htmlFor="interview-title">{t("interviews.dialog.titleLabel")}</Label><Input id="interview-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div>
+          <div className="flex flex-col gap-2"><Label htmlFor="interview-brief">{t("interviews.dialog.brief")}</Label><Textarea id="interview-brief" value={brief} onChange={(event) => setBrief(event.target.value)} /></div>
           <ErrorNote error={error} />
           <DialogFooter><Button type="submit" disabled={busy || !assigneeId.trim() || !title.trim()}>{t("interviews.dialog.submit")}</Button></DialogFooter>
         </form>

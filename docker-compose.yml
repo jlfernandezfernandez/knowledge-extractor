@@ -21,12 +21,12 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql://knowli:knowli@db:5432/knowli
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
-      SPEECH_PROVIDER: ${SPEECH_PROVIDER:-}
-      SPEECH_MODEL_DIR: ${SPEECH_MODEL_DIR:-}
-      SPEECH_THREADS: ${SPEECH_THREADS:-4}
-      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      MODEL_BASE_URL: ${MODEL_BASE_URL:-http://host.docker.internal:11434/v1}
+      MODEL_API_KEY: ${MODEL_API_KEY:-ollama}
+      MODEL_NAME: ${MODEL_NAME:-qwen3.5:9b}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-Systran/faster-whisper-small}
+      TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-local}
+      TRANSCRIPTION_BASE_URL: ${TRANSCRIPTION_BASE_URL:-http://host.docker.internal:8000/v1}
       COOKIE_SECURE: "false"
     extra_hosts:
       - host.docker.internal:host-gateway

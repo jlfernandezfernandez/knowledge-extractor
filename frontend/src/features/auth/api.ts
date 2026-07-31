@@ -1,11 +1,9 @@
-import { api } from "@/lib/api";
+import { post, request } from "@/lib/api";
 import type { AuthResponse, LoginInput, RegisterInput } from "./types";
 
 export const authApi = {
-  login: (input: LoginInput) =>
-    api<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(input) }),
-  register: (input: RegisterInput) =>
-    api<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(input) }),
-  me: (signal?: AbortSignal) => api<AuthResponse>("/api/auth/me", { signal }),
-  logout: () => api<void>("/api/auth/logout", { method: "POST" }),
+  login: (input: LoginInput) => post<AuthResponse>("/api/auth/login", input),
+  register: (input: RegisterInput) => post<AuthResponse>("/api/auth/register", input),
+  me: (signal?: AbortSignal) => request<AuthResponse>("/api/auth/me", { signal }),
+  logout: () => post<void>("/api/auth/logout"),
 };

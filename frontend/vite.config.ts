@@ -14,7 +14,6 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/api": { target: "http://api:8000", changeOrigin: true },
-      "/ws": { target: "http://api:8000", changeOrigin: true, ws: true },
     },
   },
   // Deep links like /review/<id> are resolved client-side; Vite's dev server

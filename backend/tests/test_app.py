@@ -4,10 +4,8 @@ import importlib.util
 
 import httpx
 import pytest
-from starlette.testclient import TestClient, WebSocketDenialResponse
 
 from knowli.interfaces.http import create_app
-from knowli.interfaces.http import auth
 
 
 @pytest.fixture
@@ -29,6 +27,7 @@ async def test_web_app_has_only_the_cookie_protected_product_surface():
     paths = {route.path for route in _routes(app) if hasattr(route, "path")}
 
     assert {"/api/health/live", "/api/health/ready"} <= paths
+    assert "/api/transcribe/live" not in paths
     assert all("a2a" not in path.lower() and "mcp" not in path.lower() for path in paths)
     assert importlib.util.find_spec("knowli.interfaces.a2a") is None
     assert importlib.util.find_spec("knowli.interfaces.mcp") is None
@@ -60,40 +59,3 @@ async def test_web_app_has_only_the_cookie_protected_product_surface():
         for method, path, body in requests:
             response = await client.request(method, path, json=body)
             assert response.status_code == 401, f"{method} {path}: {response.text}"
-
-
-def test_transcription_websocket_requires_a_session_cookie():
-    """Checking speech before auth would reveal optional service state publicly."""
-    with TestClient(create_app()) as client:
-        with pytest.raises(WebSocketDenialResponse) as denied:
-            with client.websocket_connect("/api/transcribe/live"):
-                pass
-
-    assert denied.value.status_code == 401
-
-
-def test_transcription_websocket_reports_disabled_speech_to_authenticated_users(
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """An optional speech install must deny consistently instead of raising an import error."""
-    class AuthenticatedSession:
-        def authenticate(self, _: str) -> object:
-            return object()
-
-    app = create_app()
-    app.dependency_overrides[auth.get_auth_service] = AuthenticatedSession
-    monkeypatch.setattr(
-        "knowli.interfaces.http.speech.wiring.speech_available", lambda: False
-    )
-
-    with TestClient(app) as client:
-        client.cookies.set("knowli_session", "token")
-        with pytest.raises(WebSocketDenialResponse) as denied:
-            with client.websocket_connect("/api/transcribe/live"):
-                pass
-
-    assert denied.value.status_code == 501
-    assert denied.value.json() == {
-        "code": "speech_unavailable",
-        "message": "speech is not available",
-    }

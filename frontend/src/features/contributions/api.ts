@@ -1,9 +1,9 @@
-import { post, request } from "@/lib/api/client";
+import { post, request } from "@/lib/api";
 import type { ClaimDraft, ConflictResolution, Contribution } from "./types";
 
 export const contributionsApi = {
   create: (raw_text: string) =>
-    post<Pick<Contribution, "id" | "stage" | "revision">>("/api/contributions", { raw_text, source: "text" }),
+    post<Pick<Contribution, "id" | "stage" | "revision">>("/api/contributions", { raw_text }),
   get: (id: string) => request<Contribution>(`/api/contributions/${id}`),
   confirm: (id: string, revision: number, claims: ClaimDraft[]) =>
     post<Contribution>(`/api/contributions/${id}/confirm`, { revision, claims }),
@@ -13,4 +13,9 @@ export const contributionsApi = {
     post<Contribution>(`/api/contributions/${id}/commit`, { revision }),
   back: (id: string, revision: number) =>
     post<Contribution>(`/api/contributions/${id}/back`, { revision }),
+  transcribe: (audio: Blob) => {
+    const form = new FormData();
+    form.append("audio", audio, "recording.webm");
+    return request<{ text: string }>("/api/transcriptions", { method: "POST", body: form });
+  },
 };

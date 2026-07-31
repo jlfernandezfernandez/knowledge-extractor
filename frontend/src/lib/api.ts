@@ -27,7 +27,7 @@ function errorBody(value: unknown, response: Response) {
   };
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -37,4 +37,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) throw new ApiError(errorBody(await response.json().catch(() => null), response));
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export function post<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 }

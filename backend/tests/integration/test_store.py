@@ -56,7 +56,7 @@ def test_global_search_returns_claims_from_two_authors(database: ConnectionPool)
     store = PostgresStore(database)
     ana, bruno = _user(database, "Ana"), _user(database, "Bruno")
     first = store.create_contribution(ana, "Ana contribution", "text")
-    second = store.create_contribution(bruno, "Bruno contribution", "speech")
+    second = store.create_contribution(bruno, "Bruno contribution", "text")
     store.commit_claims(first.id, 0, [_claim("ana", "Ana result", "Global retrieval signal")])
     store.commit_claims(second.id, 0, [_claim("bruno", "Bruno result", "Global retrieval signal")])
 
@@ -70,7 +70,7 @@ def test_global_search_returns_claims_from_two_authors(database: ConnectionPool)
 def test_history_includes_author_source_and_claim_count(database: ConnectionPool):
     store = PostgresStore(database)
     author = _user(database, "Ada")
-    contribution = store.create_contribution(author, "An imported note", "speech")
+    contribution = store.create_contribution(author, "An imported note", "text")
     store.commit_claims(contribution.id, 0, [_claim("one", "One", "First statement")])
 
     items, next_cursor = store.list_history(None, 10)
@@ -78,7 +78,7 @@ def test_history_includes_author_source_and_claim_count(database: ConnectionPool
     assert len(items) == 1
     assert items[0].contribution_id == contribution.id
     assert items[0].author == "Ada"
-    assert items[0].source == "speech"
+    assert items[0].source == "text"
     assert items[0].claim_count == 1
     assert next_cursor is None
 

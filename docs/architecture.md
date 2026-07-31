@@ -6,7 +6,7 @@ becomes searchable only after its contributor reviews it.
 
 ```mermaid
 flowchart LR
-  Browser["Browser\nReact + Vite"] --> Proxy["Web proxy\nNginx"]
+  Browser["Browser\nReact"] --> Proxy["Web service\nVite"]
   Proxy --> API["FastAPI\nHTTP routes + auth"]
   API --> Services["Application services\naccounts · contributions · interviews · Ask"]
   Services --> Graph["LangGraph review graph\nextract → find conflicts → prepare → commit"]
@@ -16,14 +16,13 @@ flowchart LR
   Services --> Model["External model\nOpenAI-compatible"]
   Services --> Embedder["Embedder\nFastEmbed ONNX"]
   Embedder --> DB
-  API --> Speech["Optional speech\nParakeet or Whisper"]
 ```
 
-The browser talks only to the web service. Its proxy forwards `/api` and the
-speech websocket to FastAPI, while serving the React application itself.
-FastAPI authenticates the request, validates its JSON with Pydantic, and calls
-an application service. The service is where the product rules live; it uses
-the graph for the contribution workflow and the store for durable data.
+The browser talks only to the web service. Vite forwards `/api` to FastAPI
+while serving the React application itself. FastAPI authenticates the request,
+validates its JSON with Pydantic, and calls an application service. The service
+is where the product rules live; it uses the graph for the contribution
+workflow and the store for durable data.
 
 ## The contribution graph
 
@@ -49,7 +48,7 @@ competing workflow-state table.
 | `backend/knowli/interfaces/http/` | Routes, cookies, request/response schemas, Server-Sent Events, and translating known errors to HTTP. |
 | `backend/knowli/application/` | Use cases: login, contributions, interviews, Ask, history, authorization, and workflow progression. |
 | `backend/knowli/domain/` | Typed claims, users, interview values, review policy, and the ports that the application needs. |
-| `backend/knowli/infrastructure/` | Concrete PostgreSQL repository, LangGraph checkpointer, OpenAI adapter, FastEmbed, and optional speech engines. |
+| `backend/knowli/infrastructure/` | Concrete PostgreSQL repository, LangGraph checkpointer, OpenAI-compatible adapter, and FastEmbed. |
 | `backend/knowli/wiring.py` | The composition root that connects ports to implementations. |
 
 The dependency direction is intentionally inward: HTTP calls application code;

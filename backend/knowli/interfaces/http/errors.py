@@ -3,6 +3,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from openai import OpenAIError
 
 from ...application.auth import InvalidCredentials, InvalidRegistration, SessionExpired
 from ...application.ask import InvalidHistoryCursor, InvalidQuestion
@@ -21,6 +22,10 @@ def _error(status_code: int, code: str, message: str) -> JSONResponse:
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(OpenAIError)
+    def model_unavailable(_: Request, __: OpenAIError) -> JSONResponse:
+        return _error(503, "model_unavailable", "configure a model to use Ask")
+
     @app.exception_handler(InvalidCredentials)
     def invalid_credentials(_: Request, __: InvalidCredentials) -> JSONResponse:
         return _error(401, "unauthenticated", "invalid email or password")

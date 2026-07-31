@@ -26,8 +26,8 @@ class FakeStore:
                 HistoryItem(
                     contribution_id="contribution-1",
                     author="Ada",
-                    source="speech",
-                    summary="A recorded rule.",
+                    source="text",
+                    summary="A written rule.",
                     claim_count=1,
                     created_at=datetime(2026, 7, 30, tzinfo=UTC),
                 )
@@ -87,13 +87,13 @@ def test_ask_returns_only_retrieved_citations_with_exact_provenance():
 
 def test_ask_returns_deterministic_insufficient_evidence_without_claims():
     """Calling the model without evidence would let it answer from outside the store."""
-    from knowli.application.ask import AskService, INSUFFICIENT_EVIDENCE
+    from knowli.application.ask import AskService
 
     model = FakeModel()
     result = AskService(FakeStore([]), model, FakeEmbedder()).ask("What is the policy?")
 
     assert result == {
-        "answer": INSUFFICIENT_EVIDENCE,
+        "answer": "",
         "citations": [],
         "sufficient_evidence": False,
     }
@@ -112,8 +112,8 @@ def test_history_preserves_store_cursor_and_provenance():
             {
                 "contribution_id": "contribution-1",
                 "author": "Ada",
-                "source": "speech",
-                "summary": "A recorded rule.",
+                "source": "text",
+                "summary": "A written rule.",
                 "claim_count": 1,
                 "created_at": datetime(2026, 7, 30, tzinfo=UTC),
             }

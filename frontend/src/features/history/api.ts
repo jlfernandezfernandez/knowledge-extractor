@@ -1,4 +1,4 @@
-import { request } from "@/lib/api/client";
+import { request } from "@/lib/api";
 
 export type HistoryItem = {
   contribution_id: string;

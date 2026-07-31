@@ -1,4 +1,4 @@
-import { post, request } from "@/lib/api/client";
+import { post, request } from "@/lib/api";
 import type { AuthenticatedUser } from "@/features/auth/types";
 import type { Contribution } from "@/features/contributions/types";
 

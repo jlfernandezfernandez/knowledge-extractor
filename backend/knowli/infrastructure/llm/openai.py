@@ -12,11 +12,12 @@ from .prompts import ANSWER_SYSTEM, COMPARE_SYSTEM, EXTRACT_SYSTEM
 from .schemas import Answer, Comparisons, Extraction
 
 
-class OpenAIModel:
+class OpenAICompatibleModel:
     def __init__(self, chat_model: BaseChatModel | None = None):
         self._chat = chat_model or ChatOpenAI(
-            model=config.OPENAI_MODEL,
-            api_key=config.OPENAI_API_KEY,
+            model=config.MODEL_NAME,
+            api_key=config.MODEL_API_KEY,
+            base_url=config.MODEL_BASE_URL or None,
             temperature=0,
         )
 

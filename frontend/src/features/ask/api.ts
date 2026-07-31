@@ -1,4 +1,4 @@
-import { post } from "@/lib/api/client";
+import { post } from "@/lib/api";
 
 export type Citation = {
   id: string;

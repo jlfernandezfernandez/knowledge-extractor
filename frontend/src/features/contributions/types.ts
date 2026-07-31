@@ -25,7 +25,7 @@ export type Contribution = {
   author_id: string;
   author: string;
   kind: "contribution" | "interview";
-  source: "text" | "speech";
+  source: string;
   raw_text: string;
   stage: ContributionStage;
   revision: number;

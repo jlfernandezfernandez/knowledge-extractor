@@ -1,7 +1,7 @@
 """The small external contracts used by Knowli services."""
 
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, BinaryIO, Protocol
 
 from .claim import AnswerResult, ClaimDraft, ClaimSearchResult, ClaimToCommit, ContributionStage
 from .contribution import HistoryItem, StoredContribution
@@ -21,6 +21,10 @@ class Model(Protocol):
 
 class Embedder(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
+
+
+class Transcriber(Protocol):
+    def transcribe(self, audio: BinaryIO, filename: str) -> str: ...
 
 
 class ContributionStore(Protocol):

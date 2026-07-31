@@ -11,6 +11,10 @@ from pwdlib import PasswordHash
 from ..domain.ports import SessionStore
 from ..domain.user import DuplicateEmail, User
 
+DEMO_EMAIL = "demo@knowli.local"
+DEMO_PASSWORD = "demo"
+DEMO_DISPLAY_NAME = "Demo"
+
 
 class InvalidCredentials(Exception):
     """Raised when an email/password pair cannot authenticate."""
@@ -31,6 +35,20 @@ class InvalidRegistration(Exception):
 class AuthResult:
     user: User
     token: str
+
+
+def ensure_demo_account(store: SessionStore) -> None:
+    """Create the documented local demo account once, without changing it."""
+    if store.get_user_credentials(DEMO_EMAIL) is not None:
+        return
+    try:
+        store.create_user(
+            DEMO_EMAIL,
+            DEMO_DISPLAY_NAME,
+            PasswordHash.recommended().hash(DEMO_PASSWORD),
+        )
+    except DuplicateEmail:
+        pass
 
 
 class AuthService:

@@ -30,10 +30,9 @@ def health() -> dict:
     """Expose configured values without claiming optional services are running."""
     return {
         "ok": True,
-        "openai": {
-            "model": config.OPENAI_MODEL,
-            "api_key_configured": bool(config.OPENAI_API_KEY),
+        "model": {
+            "name": config.MODEL_NAME,
+            "api_key_configured": bool(config.MODEL_API_KEY),
         },
         "embeddings": {"model": config.EMBEDDING_MODEL, "dim": config.EMBED_DIM},
-        "speech": {"provider": config.SPEECH_PROVIDER},
     }

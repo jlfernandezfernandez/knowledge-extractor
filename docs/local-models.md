@@ -1,60 +1,51 @@
 # Local models
 
-Knowli can start without model credentials, which is useful for inspecting the
-interface and running deterministic checks. To extract claims, compare overlap,
-or answer questions, configure an OpenAI-compatible chat model.
+Knowli keeps embeddings local by default. Its text model and microphone
+transcription each use one OpenAI-compatible endpoint.
 
-## OpenAI
+## Text model
 
-Copy the example environment file and set a key:
-
-```bash
-cp .env.example .env
-# Edit .env:
-OPENAI_API_KEY=your-key
-OPENAI_MODEL=gpt-4.1-mini
-```
-
-Then start the full stack with `docker compose up --build`. `OPENAI_MODEL` is
-optional; the Compose configuration defaults it to `gpt-4.1-mini`.
-
-The adapter in `backend/knowli/infrastructure/llm/openai.py` requests
-structured output for claim extraction, comparison, and answers. This keeps
-JSON parsing and provider details at the integration edge.
-
-## Embeddings
-
-`backend/knowli/infrastructure/embedding/embedder.py` uses FastEmbed with the
-multilingual MiniLM model by default. It runs locally through ONNX and downloads
-its weights on first use. The PostgreSQL schema expects 384 dimensions; if you
-change `EMBEDDING_MODEL`, keep `EMBED_DIM` compatible and recreate local data
-when the dimension changes.
-
-## Optional speech
-
-Speech is disabled unless configured. To enable Parakeet, provide the path to a
-downloaded model directory containing `encoder.int8.onnx`:
+The default is the local Ollama model used for development: `qwen3.5:9b`
+(about 6.6 GB). Install and start it once:
 
 ```bash
-SPEECH_PROVIDER=parakeet
-SPEECH_MODEL_DIR=/absolute/path/to/parakeet
+ollama pull qwen3.5:9b
+ollama serve
 ```
 
-The optional speech package is required for Parakeet support. Whisper is an
-alternative:
+Docker reaches Ollama through `host.docker.internal`:
 
 ```bash
-SPEECH_PROVIDER=whisper
-WHISPER_MODEL=small
+MODEL_BASE_URL=http://host.docker.internal:11434/v1
+MODEL_API_KEY=ollama
+MODEL_NAME=qwen3.5:9b
 ```
 
-Install its optional backend with `uv sync --directory backend --extra whisper`.
-See `backend/knowli/infrastructure/speech/transcriber.py` for availability
-checks and lazy loading. Speech failure does not prevent typed contributions.
+For OpenAI, Groq, OpenRouter, or another compatible provider, change only
+those three values. When running the backend directly, replace
+`host.docker.internal` with `localhost`.
 
-## Deterministic end-to-end runs
+## Microphone transcription
 
-The browser E2E setup uses deterministic model and embedding implementations
-instead of a live provider. It is intentionally separate from normal local
-startup so the portfolio path stays faithful to the configured runtime while
-tests remain reproducible.
+Knowli sends the microphone recording to an OpenAI-compatible
+`/audio/transcriptions` endpoint. The recommended local setup is
+[Speaches](https://github.com/speaches-ai/speaches), which runs Faster-Whisper
+on your computer. Docker reaches it through `host.docker.internal`:
+
+```bash
+TRANSCRIPTION_BASE_URL=http://host.docker.internal:8000/v1
+TRANSCRIPTION_API_KEY=local
+TRANSCRIPTION_MODEL=Systran/faster-whisper-small
+```
+
+If you run the backend directly instead of through Docker, use `localhost` in
+the base URL. The speech service owns its model download and storage; Knowli
+does not add a model container or volume.
+
+Use any other compatible service by changing those three values. For OpenAI:
+
+```bash
+TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
+TRANSCRIPTION_API_KEY=your-key
+TRANSCRIPTION_BASE_URL=https://api.openai.com/v1
+```

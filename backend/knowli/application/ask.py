@@ -5,9 +5,6 @@ from dataclasses import asdict
 from ..domain.claim import ClaimSearchResult
 from ..domain.ports import ContributionStore, Embedder, Model
 
-INSUFFICIENT_EVIDENCE = "There is not enough evidence to answer this question."
-
-
 class InvalidQuestion(ValueError):
     pass
 
@@ -38,7 +35,7 @@ class AskService:
         )
         if not claims:
             return {
-                "answer": INSUFFICIENT_EVIDENCE,
+                "answer": "",
                 "citations": [],
                 "sufficient_evidence": False,
             }

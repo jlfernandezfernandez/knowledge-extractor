@@ -84,18 +84,11 @@ describe("history", () => {
     fetchMock.mockResolvedValueOnce(response({ items: [firstItem], next_cursor: null }));
     renderPage();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("History is temporarily unavailable.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Try again.");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText(firstItem.summary)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("localizes the speech source", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(response({ items: [{ ...firstItem, source: "speech" }], next_cursor: null }));
-    renderPage();
-
-    expect(await screen.findByText("Speech")).toBeInTheDocument();
   });
 
   it("links each entry to its contribution review", async () => {

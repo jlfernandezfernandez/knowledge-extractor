@@ -14,7 +14,7 @@ startup all fit in one approachable codebase.
 
 ## What it does
 
-- Lets registered users capture a contribution by typing.
+- Lets registered users capture a contribution by typing or speaking.
 - Extracts small, reviewable claims and pauses for human approval.
 - Finds related claims, asks the contributor to resolve meaningful overlap, and
   preserves lineage when a newer claim replaces an older one.
@@ -27,15 +27,22 @@ startup all fit in one approachable codebase.
 
 ```bash
 cp .env.example .env
-# Set OPENAI_API_KEY in .env when using OpenAI.
+# Required once on the host.
+ollama pull qwen3.5:9b
+# In another terminal, start Ollama only if it is not already running.
+ollama serve
+# Then return here.
 docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000), create an account, and
-start contributing. There is intentionally no default account: the first
-person registers their own email and password. The API starts without an
-OpenAI key, but capture and Ask need a configured model to produce useful
-results.
+Open [http://localhost:3000](http://localhost:3000) and sign in with the
+account created on first startup:
+
+- Email: `demo@knowli.local`
+- Password: `demo`
+
+You can also create your own account. The default model is local Ollama. To
+use an API provider instead, change the three `MODEL_*` values in `.env`.
 
 ### Open it from another device on your LAN
 
@@ -52,8 +59,12 @@ The PostgreSQL data lives in the named `knowli_pgdata` Docker volume and
 survives container rebuilds and `docker compose down`. It is removed only by
 the explicit destructive command `docker compose down -v`.
 
-The first contribution may download the local embedding model, so its first
-run can take longer than later runs.
+The first contribution may download the local embedding model. Microphone
+transcription uses the configured OpenAI-compatible endpoint; the provided
+example points to a local service running on your computer.
+
+See [local model configuration](docs/local-models.md) to use the recommended
+local speech service or to point Knowli at an API provider.
 
 ## Test and check
 
@@ -78,7 +89,7 @@ Compose override and run `npm --prefix frontend run test:e2e`.
 | `frontend/src/` | React interface, routes, feature pages, translations, and component tests. |
 | `backend/knowli/domain/` | Stable business values and ports. |
 | `backend/knowli/application/` | Review, Ask, account, and interview use cases. |
-| `backend/knowli/infrastructure/` | PostgreSQL, embeddings, model, speech, and E2E implementations. |
+| `backend/knowli/infrastructure/` | PostgreSQL, embeddings, model, and E2E implementations. |
 | `backend/knowli/interfaces/http/` | FastAPI routes, request schemas, authentication, and error mapping. |
 | `docs/` | Architecture, concepts, decisions, local setup, and a guided code tour. |
 | `scripts/` | Local smoke and language-boundary checks. |
@@ -89,7 +100,7 @@ Compose override and run `npm --prefix frontend run test:e2e`.
 - [Concepts](docs/concepts.md) — the vocabulary behind reviewed retrieval.
 - [Learning guide](docs/learning-guide.md) — follow four requests through the code.
 - [Decisions](docs/decisions.md) — the deliberate trade-offs.
-- [Local models](docs/local-models.md) — model and speech configuration.
+- [Local models](docs/local-models.md) — model and embedding configuration.
 
 ## License
 

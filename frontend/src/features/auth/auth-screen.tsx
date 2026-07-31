@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
@@ -16,7 +15,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
   const { t } = useTranslation();
   const { login, register } = useAuth();
   const [fields, setFields] = useState<Record<string, string>>({});
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
   const isRegister = mode === "register";
   const copy = isRegister ? "auth.register" : "auth.login";
@@ -25,7 +24,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
     event.preventDefault();
     setSubmitting(true);
     setFields({});
-    setError("");
+    setError(null);
     const values = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
 
     try {
@@ -36,23 +35,20 @@ export function AuthScreen({ mode }: AuthScreenProps) {
       }
     } catch (caught) {
       if (caught instanceof ApiError && caught.fields) setFields(caught.fields);
-      const message = caught instanceof Error ? caught.message : t("auth.failed");
-      setError(message);
-      toast.error(message);
+      setError(caught);
     } finally {
       setSubmitting(false);
     }
   }
 
-  const fieldError = (name: string) => fields[name] && <p id={`${name}-error`} role="alert" className="text-sm text-destructive">{fields[name]}</p>;
+  const fieldError = (name: string) => fields[name] && <p id={`${name}-error`} role="alert" className="text-sm text-destructive">{t("errors.invalidField")}</p>;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm items-center px-5">
+    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-5">
+      <div className="flex justify-center"><Brand label={t("app.name")} /></div>
       <Card className="w-full">
         <CardHeader>
-          <Brand label={t("app.name")} className="mb-2" />
           <CardTitle><h1 className="text-inherit font-inherit">{t(`${copy}.title`)}</h1></CardTitle>
-          <CardDescription>{t(`${copy}.description`)}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={submit}>
@@ -70,10 +66,10 @@ export function AuthScreen({ mode }: AuthScreenProps) {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="password">{t("auth.password")}</Label>
-              <Input id="password" name="password" required type="password" minLength={8} autoComplete={isRegister ? "new-password" : "current-password"} aria-invalid={Boolean(fields.password)} aria-describedby={fields.password ? "password-error" : undefined} />
+              <Input id="password" name="password" required type="password" minLength={isRegister ? 8 : undefined} autoComplete={isRegister ? "new-password" : "current-password"} aria-invalid={Boolean(fields.password)} aria-describedby={fields.password ? "password-error" : undefined} />
               {fieldError("password")}
             </div>
-            {error && !Object.keys(fields).length && <p className="text-sm text-destructive" role="alert">{error}</p>}
+            {Boolean(error) && !Object.keys(fields).length && <p className="text-sm text-destructive" role="alert">{String(error instanceof ApiError ? t(`errors.${error.code}`, { defaultValue: t("errors.requestFailed") }) : t("errors.requestFailed"))}</p>}
             <Button type="submit" disabled={submitting}>{t(`${copy}.submit`)}</Button>
             <Link className="text-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to={isRegister ? "/login" : "/register"}>
               {t(`${copy}.alternate`)}

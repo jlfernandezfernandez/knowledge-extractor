@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from ... import wiring
-from . import ask, auth, health, history, interviews, review, speech
+from . import ask, auth, health, history, interviews, review, transcription
 from .errors import register_error_handlers
 
 
@@ -25,8 +25,8 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(auth.users_router)
     app.include_router(review.router)
+    app.include_router(transcription.router)
     app.include_router(interviews.router)
     app.include_router(ask.router)
     app.include_router(history.router)
-    app.include_router(speech.router)
     return app

@@ -54,15 +54,15 @@ copyable primitives rather than an opaque component runtime. Browser language
 detection and typed catalogs give a small bilingual interface without a server
 translation layer.
 
-## Model and speech integrations at the edge
+## Model integrations at the edge
 
-**Chosen.** Use the OpenAI-compatible adapter for structured model calls,
-FastEmbed for local embeddings, and optional Parakeet or Whisper speech.
+**Chosen.** Use one OpenAI-compatible adapter for structured model calls and
+FastEmbed for local embeddings. The local default points at Ollama; an API
+provider uses the same three configuration values.
 
 **Why.** Those integrations stay behind domain ports, so application code can
 be tested with deterministic doubles. The local embedding path keeps the
-standard stack small; speech stays optional because it is a convenience, not a
-requirement for contributing.
+standard stack small.
 
 ## Deferred protocols
 

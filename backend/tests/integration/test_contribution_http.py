@@ -126,6 +126,17 @@ async def test_create_and_edit_use_public_contribution_contracts(service):
 
 
 @pytest.mark.anyio
+async def test_capture_source_is_owned_by_the_server(service):
+    async with _client(service) as client:
+        response = await client.post(
+            "/api/contributions",
+            json={"raw_text": "A dictated rule.", "source": "speech"},
+        )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
 async def test_generic_capture_rejects_an_interview_id(service):
     """Accepting an interview id here would bypass assignee and started-status checks."""
     async with _client(service) as client:

@@ -39,7 +39,7 @@ describe("application router", () => {
 
   it.each([
     ["/", "Share what you know"],
-    ["/ask", "Ask"],
+    ["/ask", "Ask anything"],
     ["/interviews", "Interviews"],
     ["/history", "History"],
     ["/review/review-123", "Review claims"],
@@ -64,6 +64,19 @@ describe("application router", () => {
       "aria-current",
       "page",
     );
+  });
+
+  it("shows the signed-in person, repository link, and sign-out action", () => {
+    renderRoute("/ask");
+
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByText("ada@example.test")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+      "href",
+      "https://github.com/jlfernandezfernandez/knowli",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
   });
 
   it("opens a mobile navigation with all destinations", () => {

@@ -3,8 +3,16 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from pwdlib import PasswordHash
 
-from knowli.application.auth import AuthService, InvalidCredentials, SessionExpired
+from knowli.application.auth import (
+    DEMO_EMAIL,
+    DEMO_PASSWORD,
+    AuthService,
+    InvalidCredentials,
+    SessionExpired,
+    ensure_demo_account,
+)
 from knowli.domain.user import DuplicateEmail, User, UserCredentials
 
 
@@ -118,3 +126,14 @@ def test_logout_invalidates_the_session():
 
     with pytest.raises(SessionExpired):
         service.authenticate(result.token)
+
+
+def test_demo_account_is_created_once_with_its_documented_password():
+    store = MemorySessionStore()
+
+    ensure_demo_account(store)
+    first_hash = store.users[DEMO_EMAIL].password_hash
+    ensure_demo_account(store)
+
+    assert len(store.users) == 1
+    assert PasswordHash.recommended().verify(DEMO_PASSWORD, first_hash)

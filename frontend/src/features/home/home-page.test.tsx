@@ -16,6 +16,23 @@ const pending = {
   completed_at: null,
 };
 
+class Recorder {
+  ondataavailable: ((event: BlobEvent) => void) | null = null;
+  onstop: (() => void) | null = null;
+  stream: MediaStream;
+
+  constructor(stream: MediaStream) {
+    this.stream = stream;
+  }
+
+  start() {}
+
+  stop() {
+    this.ondataavailable?.({ data: new Blob(["recording"], { type: "audio/webm" }) } as BlobEvent);
+    this.onstop?.();
+  }
+}
+
 function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
@@ -35,9 +52,17 @@ function renderHome() {
 describe("home contribution composer", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ items: [] })));
+    vi.stubGlobal("MediaRecorder", Recorder);
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }) },
+    });
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: undefined });
+  });
 
   it("keeps the empty composer disabled without a duplicate add-knowledge action", async () => {
     renderHome();
@@ -64,9 +89,35 @@ describe("home contribution composer", () => {
       expect.objectContaining({
         method: "POST",
         credentials: "include",
-        body: JSON.stringify({ raw_text: "Deploy production on Friday.", source: "text" }),
+        body: JSON.stringify({ raw_text: "Deploy production on Friday." }),
       }),
     );
+  });
+
+  it("records microphone audio and adds its transcription to the composer", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(response({ items: [] }));
+    fetchMock.mockResolvedValueOnce(response({ text: "Deploy production on Tuesdays." }));
+    renderHome();
+
+    fireEvent.click(screen.getByRole("button", { name: "Record audio" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop recording" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Stop recording" }));
+
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Your contribution" })).toHaveValue("Deploy production on Tuesdays."));
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://localhost:8000/api/transcriptions",
+      expect.objectContaining({ method: "POST", credentials: "include", body: expect.any(FormData) }),
+    );
+  });
+
+  it("shows one localized microphone error for an unavailable recording context", async () => {
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: undefined });
+    renderHome();
+
+    fireEvent.click(screen.getByRole("button", { name: "Record audio" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Microphone unavailable");
   });
 
   it("shows at most three pending interviews and starts the selected interview", async () => {

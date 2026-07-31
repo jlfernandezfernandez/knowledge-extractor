@@ -1,4 +1,4 @@
-"""Implementations of the domain ports: Postgres, LangChain, fastembed, sherpa-onnx.
+"""Implementations of the domain ports: Postgres, LangChain, FastEmbed, and APIs.
 
 Only `knowli/wiring.py` imports from this package.
 """

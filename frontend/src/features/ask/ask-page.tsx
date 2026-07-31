@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { ArrowUpIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ErrorNote } from "@/components/common/error-note";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { askApi, type AskResponse, type Citation } from "./api";
 
 function CitationCard({ citation }: { citation: Citation }) {
@@ -26,7 +26,7 @@ function CitationCard({ citation }: { citation: Citation }) {
         </Button>
       </CardHeader>
       {expanded && (
-        <CardContent className="space-y-2">
+        <CardContent className="flex flex-col gap-2">
           <p>{citation.statement}</p>
           <p className="text-sm text-muted-foreground"><span>{citation.author}</span><span aria-hidden="true"> · </span><time dateTime={citation.contribution_created_at}>{date}</time></p>
         </CardContent>
@@ -44,12 +44,12 @@ function Answer({ result }: { result: AskResponse }) {
         <CardTitle>{t("ask.answer")}</CardTitle>
         {!result.sufficient_evidence && <CardDescription>{t("ask.insufficientEvidence")}</CardDescription>}
       </CardHeader>
-      <CardContent className="space-y-5">
-        <p className="whitespace-pre-wrap leading-7">{result.answer}</p>
+      <CardContent className="flex flex-col gap-5">
+        {result.sufficient_evidence && <p className="whitespace-pre-wrap leading-7">{result.answer}</p>}
         {result.citations.length > 0 && (
           <section aria-labelledby="citations-title">
             <h2 id="citations-title" className="mb-3 text-sm font-medium">{t("ask.citations")}</h2>
-            <div className="space-y-2">{result.citations.map((citation) => <CitationCard key={citation.id} citation={citation} />)}</div>
+            <div className="flex flex-col gap-2">{result.citations.map((citation) => <CitationCard key={citation.id} citation={citation} />)}</div>
           </section>
         )}
       </CardContent>
@@ -60,6 +60,7 @@ function Answer({ result }: { result: AskResponse }) {
 export function AskPage() {
   const { t } = useTranslation();
   const [question, setQuestion] = useState("");
+  const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
   const [result, setResult] = useState<AskResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -72,6 +73,8 @@ export function AskPage() {
     setBusy(true);
     setError(null);
     setResult(null);
+    setSubmittedQuestion(trimmedQuestion);
+    setQuestion("");
     try {
       setResult(await askApi.ask(trimmedQuestion));
     } catch (failure) {
@@ -82,27 +85,43 @@ export function AskPage() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
-      <header className="space-y-2">
+    <section className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-3xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
+      <header>
         <h1 className="text-2xl font-semibold tracking-tight">{t("ask.title")}</h1>
-        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{t("ask.lead")}</p>
       </header>
-      <Card>
-        <CardContent>
-          <form className="flex gap-3" onSubmit={(event) => void submit(event)}>
-            <Input aria-label={t("ask.question")} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t("ask.placeholder")} />
-            <Button type="submit" disabled={busy || !question.trim()}>{busy ? t("ask.thinking") : t("ask.submit")}</Button>
-          </form>
-        </CardContent>
-      </Card>
-      {busy && (
-        <Card aria-live="polite">
-          <CardHeader><CardTitle>{t("ask.thinking")}</CardTitle></CardHeader>
-          <CardContent className="space-y-3"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /></CardContent>
-        </Card>
-      )}
-      {!busy && result && <ScrollArea className="max-h-[calc(100dvh-18rem)]"><Answer result={result} /></ScrollArea>}
-      <ErrorNote error={error} />
+      <div className="flex flex-1 flex-col gap-4">
+        {submittedQuestion && (
+          <Card className="ml-auto w-full max-w-[85%]" size="sm">
+            <CardContent><p className="whitespace-pre-wrap leading-6">{submittedQuestion}</p></CardContent>
+          </Card>
+        )}
+        {busy && (
+          <Card aria-live="polite">
+            <CardHeader><CardTitle>{t("ask.thinking")}</CardTitle></CardHeader>
+            <CardContent className="flex flex-col gap-3"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /></CardContent>
+          </Card>
+        )}
+        {!busy && result && <Answer result={result} />}
+        <ErrorNote error={error} />
+      </div>
+      <form className="flex items-end gap-2" onSubmit={(event) => void submit(event)}>
+        <Textarea
+          aria-label={t("ask.question")}
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+          placeholder={t("ask.placeholder")}
+          rows={1}
+        />
+        <Button aria-label={t("ask.submit")} disabled={busy || !question.trim()} size="icon" type="submit">
+          <ArrowUpIcon data-icon="inline-start" />
+        </Button>
+      </form>
     </section>
   );
 }

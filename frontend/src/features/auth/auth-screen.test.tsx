@@ -62,6 +62,36 @@ describe("authentication", () => {
     );
   });
 
+  it("keeps sign-in copy to the action", () => {
+    renderAuth("login");
+
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByText("Continue to Knowli.")).not.toBeInTheDocument();
+  });
+
+  it("keeps the app brand outside the sign-in card", () => {
+    renderAuth("login");
+
+    expect(screen.getByText("Knowli").closest('[data-slot="card"]')).toBeNull();
+  });
+
+  it("centers the app brand above the sign-in card", () => {
+    renderAuth("login");
+
+    expect(screen.getByText("Knowli").closest("div")).toHaveClass("justify-center");
+  });
+
+  it("only requires an eight-character password when creating an account", () => {
+    const { unmount } = renderAuth("login");
+
+    expect(screen.getByLabelText("Password")).not.toHaveAttribute("minlength");
+
+    unmount();
+    renderAuth("register");
+
+    expect(screen.getByLabelText("Password")).toHaveAttribute("minlength", "8");
+  });
+
   it("registers with the display name, email, and password", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(response({ code: "unauthenticated", message: "sign in required" }, 401));
@@ -99,7 +129,7 @@ describe("authentication", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "correct horse battery staple" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("email is required");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Check this field.");
     expect(screen.getByLabelText("Email")).toHaveAttribute("aria-describedby", "email-error");
   });
 

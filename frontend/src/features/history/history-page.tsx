@@ -20,7 +20,7 @@ function HistoryCard({ item }: { item: HistoryItem }) {
           <Badge variant="secondary">{t(`history.sources.${item.source}`, { defaultValue: item.source })}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-1 text-sm text-muted-foreground">
+      <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
         <p><span>{item.author}</span><span aria-hidden="true"> · </span><time dateTime={item.created_at}>{date}</time></p>
         <p>{t("history.claimCount", { count: item.claim_count })}</p>
       </CardContent>
@@ -30,7 +30,7 @@ function HistoryCard({ item }: { item: HistoryItem }) {
 }
 
 function HistorySkeleton() {
-  return <Card><CardHeader><Skeleton className="h-5 w-2/3" /></CardHeader><CardContent className="space-y-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-4 w-1/4" /></CardContent></Card>;
+  return <Card><CardHeader><Skeleton className="h-5 w-2/3" /></CardHeader><CardContent className="flex flex-col gap-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-4 w-1/4" /></CardContent></Card>;
 }
 
 export function HistoryPage() {
@@ -59,11 +59,11 @@ export function HistoryPage() {
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
-      <header className="space-y-2">
+      <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">{t("history.title")}</h1>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{t("history.lead")}</p>
       </header>
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         {loading && items.length === 0 && <><HistorySkeleton /><HistorySkeleton /></>}
         {!loading && !error && items.length === 0 && <Card><CardContent><p className="text-sm text-muted-foreground">{t("history.empty")}</p></CardContent></Card>}
         {items.map((item) => <HistoryCard key={item.contribution_id} item={item} />)}

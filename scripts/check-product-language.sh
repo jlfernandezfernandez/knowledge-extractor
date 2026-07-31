@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 
 # Product-facing runtime and current docs must not revive retired product terms.
-# Historical migrations, tests, and the active redesign artifacts are intentionally
-# outside this boundary because they prove or describe the cleanup itself.
+# Historical migrations and tests are intentionally outside this boundary
+# because they prove the cleanup itself.
 set -eu
 
 pattern='knowledge[-_ ]base|organisation|organization|\bteam\b|a2a|mcp|knowledge-extractor'

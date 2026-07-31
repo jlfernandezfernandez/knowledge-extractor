@@ -45,6 +45,13 @@ describe("ask", () => {
         body: JSON.stringify({ question: "When do we deploy?" }),
       }),
     ));
+    expect(await screen.findByText("When do we deploy?")).toBeInTheDocument();
+  });
+
+  it("uses a multiline chat composer", () => {
+    renderPage();
+
+    expect(screen.getByRole("textbox", { name: "Question" }).tagName).toBe("TEXTAREA");
   });
 
   it("shows a loading state while an answer is requested", () => {
@@ -54,7 +61,7 @@ describe("ask", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Question" }), { target: { value: "When do we deploy?" } });
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
 
-    expect(screen.getByRole("button", { name: "Searching" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
     expect(document.querySelector('[data-slot="skeleton"]')).toBeInTheDocument();
   });
 
@@ -85,15 +92,16 @@ describe("ask", () => {
     expect(screen.getByText(new Intl.DateTimeFormat("es", { dateStyle: "medium" }).format(new Date(citation.contribution_created_at)))).toBeInTheDocument();
   });
 
-  it("marks an answer without sufficient evidence", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(response({ answer: "I do not have enough evidence.", citations: [], sufficient_evidence: false }));
+  it("shows the localized insufficient-evidence message only once", async () => {
+    await i18n.changeLanguage("es");
+    vi.mocked(fetch).mockResolvedValueOnce(response({ answer: "There is not enough evidence to answer this question.", citations: [], sufficient_evidence: false }));
     renderPage();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Question" }), { target: { value: "What is undocumented?" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Pregunta" }), { target: { value: "¿Qué no está documentado?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preguntar" }));
 
-    expect(await screen.findByText("Not enough evidence to answer this question.")).toBeInTheDocument();
-    expect(screen.getByText("I do not have enough evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("No hay evidencia suficiente para responder a esta pregunta.")).toBeInTheDocument();
+    expect(screen.queryByText("There is not enough evidence to answer this question.")).not.toBeInTheDocument();
   });
 
   it("shows the request error next to the question", async () => {
@@ -103,6 +111,6 @@ describe("ask", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Question" }), { target: { value: "When do we deploy?" } });
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("The answer service is unavailable.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Try again.");
   });
 });
