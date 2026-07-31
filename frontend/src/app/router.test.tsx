@@ -27,7 +27,7 @@ describe("application router", () => {
       if (input.includes("/api/auth/me")) return Promise.resolve(new Response("{}", { status: 401 }));
       if (input.includes("/api/interviews")) return Promise.resolve(new Response(JSON.stringify({ items: [] })));
       if (input.includes("/api/contributions/")) return Promise.resolve(new Response(JSON.stringify({
-        id: "review-123", author_id: "user-1", author: "Ada Lovelace", kind: "contribution", source: "text", raw_text: "A fact", stage: "claims", revision: 1, summary: "A fact", created_at: "2026-07-30T08:00:00Z", committed_at: null, claim_count: 0, claims: [], conflicts: [],
+        id: "review-123", author_id: "user-1", author: "Ada Lovelace", source: "text", raw_text: "A fact", stage: "claims", revision: 1, summary: "A fact", created_at: "2026-07-30T08:00:00Z", committed_at: null, claim_count: 0, claims: [], conflicts: [],
       })));
       return Promise.resolve(new Response("{}", { status: 401 }));
     }));
@@ -40,7 +40,6 @@ describe("application router", () => {
 
   it.each([
     ["/", "Share what you know"],
-    ["/ask", "Ask anything"],
     ["/interviews", "Interviews"],
     ["/history", "History"],
     ["/review/review-123", "Review claims"],
@@ -53,29 +52,16 @@ describe("application router", () => {
   });
 
   it("redirects an unauthenticated visitor to sign in", () => {
-    renderRoute("/ask", false);
+    renderRoute("/interviews", false);
 
     expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   });
 
-  it("marks the current desktop navigation item", () => {
-    renderRoute("/interviews");
-
-    expect(screen.getAllByRole("link", { name: "Interviews" })[0]).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-  });
-
-  it("shows the signed-in person, repository link, and sign-out action", () => {
-    renderRoute("/ask");
+  it("shows the signed-in person and the sign-out action", () => {
+    renderRoute("/history");
 
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.getByText("ada@example.test")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
-      "href",
-      "https://github.com/jlfernandezfernandez/knowli",
-    );
     fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
     expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
   });
@@ -86,7 +72,7 @@ describe("application router", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
     const mobileNavigation = within(screen.getByRole("dialog"));
 
-    for (const label of ["Knowledge", "Ask", "Interviews", "History"]) {
+    for (const label of ["Knowledge", "Interviews", "History"]) {
       expect(mobileNavigation.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });

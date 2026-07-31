@@ -4,6 +4,7 @@ import base64
 import json
 from datetime import datetime
 
+import psycopg
 from psycopg_pool import ConnectionPool
 
 from ...domain.claim import ClaimSearchResult, ClaimToCommit
@@ -28,6 +29,7 @@ class PostgresContributionStore:
             id=row[0], author_id=row[1], author=row[2], raw_text=row[3],
             stage=row[4], revision=row[5], summary=row[6], created_at=row[7],
             committed_at=row[8], claim_count=row[9],
+            source="text" if row[10] is None else "interview",
         )
 
     def create_contribution(
@@ -62,7 +64,7 @@ class PostgresContributionStore:
             stored = connection.execute(
                 """SELECT c.id::text, c.author_id::text, author.display_name,
                           c.raw_text, c.stage, c.revision, c.summary, c.created_at,
-                          c.committed_at, count(claim.id)
+                          c.committed_at, count(claim.id), c.interview_id
                    FROM contribution c
                    JOIN app_user author ON author.id = c.author_id
                    LEFT JOIN claim ON claim.contribution_id = c.id
@@ -74,19 +76,24 @@ class PostgresContributionStore:
         return self._stored(stored)
 
     def get_contribution(self, contribution_id: str) -> StoredContribution | None:
-        with self._pool.connection() as connection:
-            row = connection.execute(
-                """SELECT c.id::text, c.author_id::text, u.display_name,
-                          c.raw_text, c.stage, c.revision, c.summary, c.created_at,
-                          c.committed_at, count(claim.id)
-                   FROM contribution c
-                   JOIN app_user u ON u.id = c.author_id
-                   LEFT JOIN claim ON claim.contribution_id = c.id
-                   WHERE c.id = %s
-                   GROUP BY c.id, u.display_name""",
-                (contribution_id,),
-            ).fetchone()
-        return self._stored(row) if row else None
+        # Every review route loads through here, so an id the client made up is a
+        # miss, not a crash: PostgreSQL rejects a non-uuid before it can match a row.
+        try:
+            with self._pool.connection() as connection:
+                row = connection.execute(
+                    """SELECT c.id::text, c.author_id::text, u.display_name,
+                              c.raw_text, c.stage, c.revision, c.summary, c.created_at,
+                              c.committed_at, count(claim.id), c.interview_id
+                       FROM contribution c
+                       JOIN app_user u ON u.id = c.author_id
+                       LEFT JOIN claim ON claim.contribution_id = c.id
+                       WHERE c.id = %s
+                       GROUP BY c.id, u.display_name""",
+                    (contribution_id,),
+                ).fetchone()
+            return self._stored(row) if row else None
+        except psycopg.DataError:
+            return None
 
     def save_review(
         self, contribution_id: str, expected_revision: int, stage: str, summary: str
@@ -97,18 +104,20 @@ class PostgresContributionStore:
                        UPDATE contribution
                        SET stage = %s, summary = %s, revision = revision + 1, updated_at = now()
                        WHERE id = %s AND revision = %s AND stage <> 'committed'
-                       RETURNING id, author_id, raw_text, stage, revision,
+                       RETURNING id, author_id, interview_id, raw_text, stage, revision,
                                  summary, created_at, committed_at
                    )
                    SELECT updated.id::text, updated.author_id::text, author.display_name,
                           updated.raw_text, updated.stage, updated.revision,
-                          updated.summary, updated.created_at, updated.committed_at, count(claim.id)
+                          updated.summary, updated.created_at, updated.committed_at, count(claim.id),
+                          updated.interview_id
                    FROM updated
                    JOIN app_user author ON author.id = updated.author_id
                    LEFT JOIN claim ON claim.contribution_id = updated.id
-                   GROUP BY updated.id, updated.author_id, author.display_name,
-                            updated.raw_text, updated.stage, updated.revision,
-                            updated.summary, updated.created_at, updated.committed_at""",
+                   GROUP BY updated.id, updated.author_id, updated.interview_id,
+                            author.display_name, updated.raw_text, updated.stage,
+                            updated.revision, updated.summary, updated.created_at,
+                            updated.committed_at""",
                 (stage, summary, contribution_id, expected_revision),
             ).fetchone()
             if row is None:
@@ -150,7 +159,7 @@ class PostgresContributionStore:
                 row = connection.execute(
                     """SELECT c.id::text, c.author_id::text, author.display_name,
                               c.raw_text, c.stage, c.revision, c.summary, c.created_at,
-                              c.committed_at, count(claim.id)
+                              c.committed_at, count(claim.id), c.interview_id
                        FROM contribution c
                        JOIN app_user author ON author.id = c.author_id
                        LEFT JOIN claim ON claim.contribution_id = c.id
@@ -200,7 +209,7 @@ class PostgresContributionStore:
             row = connection.execute(
                 """SELECT c.id::text, c.author_id::text, author.display_name,
                           c.raw_text, c.stage, c.revision, c.summary, c.created_at,
-                          c.committed_at, count(claim.id)
+                          c.committed_at, count(claim.id), c.interview_id
                    FROM contribution c
                    JOIN app_user author ON author.id = c.author_id
                    LEFT JOIN claim ON claim.contribution_id = c.id
@@ -274,7 +283,7 @@ class PostgresContributionStore:
         created_at, contribution_id = self._decode_history_cursor(cursor)
         with self._pool.connection() as connection:
             rows = connection.execute(
-                """SELECT contribution.id::text, author.display_name,
+                """SELECT contribution.id::text, author.display_name, contribution.interview_id,
                           contribution.summary, count(claim.id), contribution.created_at
                    FROM contribution
                    JOIN app_user author ON author.id = contribution.author_id
@@ -289,8 +298,9 @@ class PostgresContributionStore:
             ).fetchall()
         items = [
             HistoryItem(
-                contribution_id=row[0], author=row[1], summary=row[2],
-                claim_count=row[3], created_at=row[4],
+                contribution_id=row[0], author=row[1],
+                source="text" if row[2] is None else "interview",
+                summary=row[3], claim_count=row[4], created_at=row[5],
             )
             for row in rows[:limit]
         ]

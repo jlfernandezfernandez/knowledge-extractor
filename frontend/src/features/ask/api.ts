@@ -1,20 +1,21 @@
-import { post } from "@/lib/api";
-
-export type Citation = {
+export type ClaimItem = {
   id: string;
   title: string;
   statement: string;
-  author: string;
-  contribution_id: string;
-  contribution_created_at: string;
+  tags?: string[];
 };
 
-export type AskResponse = {
-  answer: string;
-  citations: Citation[];
-  sufficient_evidence: boolean;
-};
+export type AskEvent =
+  | { type: "claims"; items: ClaimItem[] }
+  | { type: "token"; content: string }
+  | { type: "tool"; name: string; done: boolean }
+  | { type: "done" }
+  | { type: "error"; code?: string };
 
-export const askApi = {
-  ask: (question: string) => post<AskResponse>("/api/ask", { question }),
-};
+/** One agent turn over SSE. `thread_id` is the client's half of the conversation
+ *  key; the server namespaces it by user, so it never selects someone else's thread. */
+export function askStream(question: string, threadId: string) {
+  return new EventSource(
+    `/api/ask/stream?question=${encodeURIComponent(question)}&thread_id=${encodeURIComponent(threadId)}`,
+  );
+}

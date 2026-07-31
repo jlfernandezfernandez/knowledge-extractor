@@ -29,14 +29,14 @@ def transcribe(
     transcriber: TranscriberDep,
 ) -> TranscriptionResponse:
     if not (audio.content_type or "").startswith("audio/"):
-        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="audio file required")
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="audio_file_required")
 
     try:
         text = transcriber.transcribe(audio.file, audio.filename or "recording.webm")
     except Exception as error:
         log.exception("Microphone transcription failed")
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="transcription unavailable") from error
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="transcription_unavailable") from error
 
     if not text:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="no speech detected")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="no_speech_detected")
     return TranscriptionResponse(text=text)

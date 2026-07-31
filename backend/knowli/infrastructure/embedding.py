@@ -1,9 +1,9 @@
-"""Embeddings: local ONNX by default, any OpenAI-compatible endpoint if configured."""
+"""Embeddings from a local ONNX model, kept off the network on purpose."""
 
 import functools
 import logging
 
-from ... import config
+from .. import config
 
 logger = logging.getLogger(__name__)
 

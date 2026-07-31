@@ -2,30 +2,13 @@ import { useCallback, useEffect, useRef, useState, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { ErrorNote } from "@/components/common/error-note";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
+import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { interviewsApi, type Interview, type InterviewView } from "./api";
 import { InterviewDialog } from "./interview-dialog";
-
-function InterviewRow({ interview, onStart }: { interview: Interview; onStart: (interview: Interview) => void }) {
-  const { t } = useTranslation();
-  return (
-    <Item>
-      <ItemContent>
-        <ItemTitle>{interview.title}</ItemTitle>
-        <ItemDescription>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(interview.created_at))}</ItemDescription>
-      </ItemContent>
-      <ItemActions>
-        <Badge variant="secondary">{t(`interviews.status.${interview.status}`)}</Badge>
-        {interview.status === "pending" && <Button size="sm" onClick={() => onStart(interview)}>{t("interviews.start")}</Button>}
-      </ItemActions>
-    </Item>
-  );
-}
+import { InterviewItem } from "./interview-item";
 
 function InterviewRowsSkeleton() {
   return (
@@ -94,7 +77,7 @@ export function InterviewsPage() {
                 {items.map((item, index) => (
                   <Fragment key={item.id}>
                     {index > 0 && <ItemSeparator />}
-                    <InterviewRow interview={item} onStart={(next) => void start(next)} />
+                    <InterviewItem interview={item} onOpen={tab === "pending" ? (next) => void start(next) : undefined} />
                   </Fragment>
                 ))}
               </ItemGroup>

@@ -136,7 +136,7 @@ def seed_database(services: AppServices | None = None) -> None:
         )
 
         # Seed 1 pending interview from Alice to Demo
-        services.store.create_interview(
+        services.interview_store.create_interview(
             requester_id=alice_user.id,
             assignee_id=demo_user.id,
             title="Políticas de retención de datos en PostgreSQL",

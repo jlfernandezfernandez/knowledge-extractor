@@ -49,7 +49,7 @@ async def test_web_app_has_only_the_cookie_protected_product_surface():
         ),
         ("POST", "/api/interviews/example/start", None),
         ("POST", "/api/interviews/example/answer", {"raw_text": "A rule."}),
-        ("POST", "/api/ask", {"question": "What is the rule?"}),
+        ("GET", "/api/ask/stream?question=What%20is%20the%20rule%3F&thread_id=t-1", None),
         ("GET", "/api/history", None),
     )
 

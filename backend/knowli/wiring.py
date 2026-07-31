@@ -21,7 +21,7 @@ from .domain.ports import (
     SessionStore,
     Transcriber,
 )
-from .infrastructure.embedding.embedder import ConfiguredEmbedder
+from .infrastructure.embedding import ConfiguredEmbedder
 from .infrastructure.llm.openai import OpenAICompatibleModel
 from .infrastructure.postgres.contribution_repository import PostgresContributionStore
 from .infrastructure.postgres.interview_repository import PostgresInterviewStore
@@ -59,7 +59,7 @@ class AppServices:
 
     @cached_property
     def model(self) -> Model:
-        return OpenAICompatibleModel()
+        return OpenAICompatibleModel(checkpointer=self.checkpointer)
 
     @cached_property
     def embedder(self) -> Embedder:
@@ -85,7 +85,9 @@ class AppServices:
 
     @cached_property
     def ask(self) -> AskService:
-        return AskService(self.contribution_store, self.model, self.embedder)
+        return AskService(
+            self.contribution_store, self.model, self.embedder, self.interview_store
+        )
 
     @cached_property
     def history(self) -> HistoryService:

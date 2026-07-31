@@ -1,5 +1,6 @@
 """Public contribution HTTP and SSE contracts."""
 
+import json
 from datetime import UTC, datetime
 
 import httpx
@@ -20,7 +21,6 @@ class FakeContributionService:
             "id": "00000000-0000-0000-0000-000000000001",
             "author_id": "author-1",
             "author": "Ada",
-            "kind": "voluntary",
             "source": "text",
             "raw_text": "Deploy on Tuesdays.",
             "stage": "claims",
@@ -186,6 +186,31 @@ async def test_sse_reconnect_sends_only_a_newer_revision(service):
     assert isinstance(event, ServerSentEvent)
     assert (event.id, event.event, event.data["revision"]) == ("1", "review", 1)
     assert heartbeat.comment == "heartbeat"
+
+
+@pytest.mark.anyio
+async def test_review_events_reach_the_browser_as_encoded_sse(service, monkeypatch):
+    """The test above proves the generator yields the right events; only the route
+    decides whether they are encoded for the wire or handed to Starlette raw, which
+    fails on `.encode()` mid-stream after the headers already promised a 200."""
+
+    async def one_event(*_, **__):
+        # The real stream polls forever, and an endless response never lets the
+        # client-side assertions run: this covers the encoding, not the polling.
+        yield ServerSentEvent(data={"revision": 1}, event="review", id="1")
+
+    monkeypatch.setattr(review, "review_events", one_event)
+
+    async with _client(service) as client:
+        response = await client.get(f"/api/contributions/{service.state['id']}/events")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    # Nginx and friends hold a buffered stream back until it fills.
+    assert response.headers["x-accel-buffering"] == "no"
+    assert "event: review" in response.text
+    payload = json.loads(response.text.split("data:")[1].splitlines()[0])
+    assert payload["revision"] == 1
 
 
 @pytest.mark.anyio

@@ -12,6 +12,9 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 3000,
     strictPort: true,
+    // Bind mounts (Docker on macOS/Windows) deliver no filesystem events, so without
+    // polling the dev server keeps serving the module it transformed at startup.
+    watch: { usePolling: Boolean(process.env.VITE_USE_POLLING) },
     proxy: {
       "/api": { target: "http://api:8000", changeOrigin: true },
     },

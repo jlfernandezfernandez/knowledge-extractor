@@ -130,7 +130,7 @@ describe("home contribution composer", () => {
     expect(screen.getByText("Second")).toBeInTheDocument();
     expect(screen.getByText("Third")).toBeInTheDocument();
     expect(screen.queryByText("Hidden fourth")).not.toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "Start interview" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /Deployment retrospective/ }));
 
     await screen.findByRole("heading", { name: "Review destination" });
     await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith(

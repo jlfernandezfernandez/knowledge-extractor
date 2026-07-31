@@ -1,10 +1,7 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpenIcon, ChevronsUpDownIcon, HistoryIcon, LogOutIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
-import { Brand } from "@/components/brand";
-import { GitHubLogo } from "@/components/github-logo";
+import { BookOpenIcon, ChevronsUpDownIcon, HistoryIcon, LogOutIcon, UsersRoundIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,21 +25,13 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
+import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ChatWidget } from "@/features/ask/chat-widget";
 import type { AuthenticatedUser } from "./router";
 
 const navigation = [
   { to: "/", key: "home", icon: BookOpenIcon },
-  { to: "/ask", key: "ask", icon: MessageCircleQuestionIcon },
   { to: "/interviews", key: "interviews", icon: UsersRoundIcon },
   { to: "/history", key: "history", icon: HistoryIcon },
 ] as const;
@@ -68,7 +57,12 @@ function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () 
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<NavLink to="/" aria-label={t("app.name")} onClick={() => setOpenMobile(false)} />}>
-              <Brand label={t("app.name")} />
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 shadow-2xs shrink-0 select-none">
+                <span aria-hidden="true" className="text-base leading-none">🦉</span>
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">{t("app.name")}</span>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -94,14 +88,14 @@ function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () 
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton size="lg" aria-label={t("shell.accountMenu")} tooltip={user.display_name} />}>
-                <Avatar size="lg">
+                <Avatar>
                   <AvatarFallback>{initials(user.display_name)}</AvatarFallback>
                 </Avatar>
-                <span className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
-                  <span className="block truncate text-sm font-medium">{user.display_name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
-                </span>
-                <ChevronsUpDownIcon aria-hidden="true" data-icon="inline-end" className="group-data-[collapsible=icon]:hidden" />
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{user.display_name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                </div>
+                <ChevronsUpDownIcon aria-hidden="true" className="ml-auto" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side={isMobile ? "bottom" : "right"} sideOffset={4}>
                 <DropdownMenuGroup>
@@ -131,51 +125,22 @@ function AppSidebar({ user, onLogout }: { user: AuthenticatedUser; onLogout: () 
 
 export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
   const { t } = useTranslation();
-  const { pathname } = useLocation();
-  const activeNavItem = navigation.find((item) => item.to === "/" ? pathname === "/" : pathname.startsWith(item.to));
-  const activeTitle = activeNavItem ? t(`nav.${activeNavItem.key}`) : null;
 
   return (
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar user={user} onLogout={onLogout} />
-        <SidebarInset>
-          <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger aria-label={t("shell.openNavigation")} className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink render={<NavLink to="/" />}>
-                      {t("app.name")}
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  {activeTitle && (
-                    <>
-                      <BreadcrumbSeparator className="hidden md:block" />
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>{activeTitle}</BreadcrumbPage>
-                      </BreadcrumbItem>
-                    </>
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
-            <div className="flex items-center gap-2">
-              <a
-                href="https://github.com/jlfernandezfernandez/knowli"
-                aria-label={t("shell.repository")}
-                rel="noreferrer"
-                target="_blank"
-                className={buttonVariants({ variant: "ghost", size: "icon" })}
-              >
-                <GitHubLogo aria-hidden="true" />
-              </a>
-            </div>
-          </header>
+        <SidebarInset className="relative">
+          {/* No app header: on desktop the sidebar rail toggles it, so the trigger
+              only has to exist where the sidebar is off-canvas. */}
+          <SidebarTrigger
+            aria-label={t("shell.openNavigation")}
+            className="absolute start-2 top-2 z-10 md:hidden"
+          />
           <Outlet />
+          <ChatWidget />
         </SidebarInset>
+        <Toaster />
       </SidebarProvider>
     </TooltipProvider>
   );

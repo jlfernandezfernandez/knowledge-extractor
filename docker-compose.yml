@@ -22,17 +22,22 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      - "8000:8000"
+      # Host 8000 is reserved for the local STT service (Speaches) that
+      # TRANSCRIPTION_BASE_URL points at; publishing the API there made it call itself.
+      - "8001:8000"
     command: ["sh", "-c", "python -c 'from knowli.infrastructure.postgres.pool import init; init()' && exec uvicorn knowli.interfaces.http.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /opt/venv/lib/python3.12/site-packages/knowli"]
     environment:
       DATABASE_URL: postgresql://knowli:knowli@db:5432/knowli
       MODEL_BASE_URL: ${MODEL_BASE_URL:-http://host.docker.internal:11434/v1}
       MODEL_API_KEY: ${MODEL_API_KEY:-ollama}
       MODEL_NAME: ${MODEL_NAME:-qwen3.5:9b}
+      MODEL_REASONING_EFFORT: ${MODEL_REASONING_EFFORT:-none}
       TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-Systran/faster-whisper-small}
       TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-local}
       TRANSCRIPTION_BASE_URL: ${TRANSCRIPTION_BASE_URL:-http://host.docker.internal:8000/v1}
       COOKIE_SECURE: "false"
+      # Same reason as the web service: bind mounts emit no events, so --reload needs polling.
+      WATCHFILES_FORCE_POLLING: "true"
     volumes:
       - ./backend/knowli:/opt/venv/lib/python3.12/site-packages/knowli
     extra_hosts:
@@ -51,6 +56,7 @@ services:
       context: ./frontend
     environment:
       VITE_API_URL: ""
+      VITE_USE_POLLING: "true"
     volumes:
       - ./frontend:/app
       - /app/node_modules
