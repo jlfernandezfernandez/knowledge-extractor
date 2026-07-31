@@ -85,7 +85,7 @@ export function AppShell({ user, onLogout }: { user: AuthenticatedUser; onLogout
                   <span className="block truncate text-sm font-medium">{user.display_name}</span>
                   <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
                 </span>
-                <ChevronsUpDownIcon aria-hidden="true" />
+                <ChevronsUpDownIcon aria-hidden="true" data-icon="inline-end" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top">
                 <DropdownMenuGroup>

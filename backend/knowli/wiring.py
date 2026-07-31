@@ -88,6 +88,14 @@ class AppServices:
             return False
         return True
 
+    def warmup(self) -> None:
+        """Pre-initialize checkpointer DDL setup and embedding model during server startup."""
+        _ = self.checkpointer
+        embedder = self.embedder
+        warmup = getattr(embedder, "warmup", None)
+        if callable(warmup):
+            warmup()
+
     def close(self) -> None:
         """Release resources in reverse construction order."""
         for name in ("checkpointer", "model", "transcriber"):

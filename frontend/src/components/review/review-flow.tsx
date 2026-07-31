@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { ClaimDraft, ConflictResolution, Contribution } from "@/features/contributions/types";
 
 type ResolutionDraft = { action: ConflictResolution["action"]; replacement_statement?: string };
@@ -63,14 +64,14 @@ export function ReviewFlow({
           {drafts.map((claim) => (
             <Card key={claim.draft_key} size="sm">
               <CardContent className="flex flex-col gap-3">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor={`${claim.draft_key}-title`}>{t("review.claimTitle")}</Label>
-                  <Textarea id={`${claim.draft_key}-title`} aria-label={t("review.claimTitle")} value={claim.title} onChange={(event) => onEdit(claim.draft_key, "title", event.target.value)} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor={`${claim.draft_key}-statement`}>{t("review.claimStatement")}</Label>
-                  <Textarea id={`${claim.draft_key}-statement`} aria-label={t("review.claimStatement")} value={claim.statement} onChange={(event) => onEdit(claim.draft_key, "statement", event.target.value)} />
-                </div>
+                <Field>
+                  <FieldLabel htmlFor={`${claim.draft_key}-title`}>{t("review.claimTitle")}</FieldLabel>
+                  <Textarea id={`${claim.draft_key}-title`} value={claim.title} onChange={(event) => onEdit(claim.draft_key, "title", event.target.value)} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`${claim.draft_key}-statement`}>{t("review.claimStatement")}</FieldLabel>
+                  <Textarea id={`${claim.draft_key}-statement`} value={claim.statement} onChange={(event) => onEdit(claim.draft_key, "statement", event.target.value)} />
+                </Field>
               </CardContent>
             </Card>
           ))}
@@ -99,16 +100,25 @@ export function ReviewFlow({
                     <CardDescription>{conflict.reason}</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3">
-                    <div className="flex flex-wrap gap-2">
+                    <ToggleGroup
+                      variant="outline"
+                      size="sm"
+                      className="flex-wrap"
+                      value={[resolution.action]}
+                      onValueChange={(values) => {
+                        const action = values[values.length - 1] as ResolutionDraft["action"] | undefined;
+                        if (action) setResolutions((current) => ({ ...current, [conflict.claim_draft_key]: { ...resolution, action } }));
+                      }}
+                    >
                       {(["keep_new", "keep_old", "keep_both", "merge"] as const).map((action) => (
-                        <Button key={action} size="sm" variant={resolution.action === action ? "default" : "outline"} onClick={() => setResolutions((current) => ({ ...current, [conflict.claim_draft_key]: { ...resolution, action } }))}>{t(`conflicts.${action}`)}</Button>
+                        <ToggleGroupItem key={action} value={action}>{t(`conflicts.${action}`)}</ToggleGroupItem>
                       ))}
-                    </div>
+                    </ToggleGroup>
                     {resolution.action === "merge" && (
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor={`${conflict.claim_draft_key}-merge`}>{t("review.mergedStatement")}</Label>
-                        <Textarea id={`${conflict.claim_draft_key}-merge`} aria-label={t("review.mergedStatement")} value={resolution.replacement_statement ?? ""} onChange={(event) => setResolutions((current) => ({ ...current, [conflict.claim_draft_key]: { ...resolution, replacement_statement: event.target.value } }))} />
-                      </div>
+                      <Field>
+                        <FieldLabel htmlFor={`${conflict.claim_draft_key}-merge`}>{t("review.mergedStatement")}</FieldLabel>
+                        <Textarea id={`${conflict.claim_draft_key}-merge`} value={resolution.replacement_statement ?? ""} onChange={(event) => setResolutions((current) => ({ ...current, [conflict.claim_draft_key]: { ...resolution, replacement_statement: event.target.value } }))} />
+                      </Field>
                     )}
                   </CardContent>
                 </Card>

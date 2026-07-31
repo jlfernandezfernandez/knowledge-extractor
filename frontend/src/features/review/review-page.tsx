@@ -4,6 +4,7 @@ import { useLocation, useParams } from "react-router";
 import { ErrorNote } from "@/components/common/error-note";
 import { ReviewFlow } from "@/components/review/review-flow";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, API_URL } from "@/lib/api";
 import { contributionsApi } from "@/features/contributions/api";
@@ -88,7 +89,7 @@ export function ReviewPage() {
     } catch (failure) { setError(failure); } finally { setBusy(false); }
   }
 
-  if (!contribution) return <div className="mx-auto max-w-3xl px-4 py-10"><p>{t("review.loading")}</p><ErrorNote error={error} /></div>;
+  if (!contribution) return <div className="mx-auto max-w-3xl px-4 py-10"><p className="flex items-center gap-2 text-muted-foreground"><Spinner />{t("review.loading")}</p><ErrorNote error={error} /></div>;
 
   const interviewCapture = interview && contribution.kind === "interview" && !contribution.raw_text;
   return (

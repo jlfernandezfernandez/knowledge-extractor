@@ -11,7 +11,9 @@ from .errors import register_error_handlers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.services = wiring.AppServices()
+    services = wiring.AppServices()
+    app.state.services = services
+    services.warmup()
     try:
         yield
     finally:

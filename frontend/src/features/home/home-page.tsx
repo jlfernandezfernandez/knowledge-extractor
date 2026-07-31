@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Fragment } from "react";
 import { MicIcon, SquareIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
@@ -6,6 +6,8 @@ import { ErrorNote } from "@/components/common/error-note";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { Textarea } from "@/components/ui/textarea";
 import { contributionsApi } from "@/features/contributions/api";
 import { interviewsApi, type Interview } from "@/features/interviews/api";
@@ -13,14 +15,16 @@ import { interviewsApi, type Interview } from "@/features/interviews/api";
 function PendingInterview({ interview, onStart }: { interview: Interview; onStart: (interview: Interview) => void }) {
   const { t } = useTranslation();
   return (
-    <li className="flex items-center gap-3 border-b py-3 last:border-0">
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{interview.title}</p>
-        <p className="text-sm text-muted-foreground">{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(interview.created_at))}</p>
-      </div>
-      <Badge variant="secondary">{t("interviews.status.pending")}</Badge>
-      <Button size="sm" onClick={() => onStart(interview)}>{t("interviews.start")}</Button>
-    </li>
+    <Item>
+      <ItemContent>
+        <ItemTitle>{interview.title}</ItemTitle>
+        <ItemDescription>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(interview.created_at))}</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Badge variant="secondary">{t("interviews.status.pending")}</Badge>
+        <Button size="sm" onClick={() => onStart(interview)}>{t("interviews.start")}</Button>
+      </ItemActions>
+    </Item>
   );
 }
 
@@ -156,7 +160,20 @@ export function HomePage() {
           <h2 id="pending-heading" className="font-medium">{t("home.pendingTitle")}</h2>
           <Link to="/interviews" className="text-sm font-medium text-primary underline-offset-4 hover:underline">{t("home.allInterviews")}</Link>
         </div>
-        {pending.length ? <ul className="mt-2">{pending.slice(0, 3).map((item) => <PendingInterview key={item.id} interview={item} onStart={(item) => void startInterview(item)} />)}</ul> : <p className="mt-3 text-sm text-muted-foreground">{t("interviews.empty.pending")}</p>}
+        {pending.length ? (
+          <ItemGroup className="mt-2 gap-0">
+            {pending.slice(0, 3).map((item, index) => (
+              <Fragment key={item.id}>
+                {index > 0 && <ItemSeparator />}
+                <PendingInterview interview={item} onStart={(next) => void startInterview(next)} />
+              </Fragment>
+            ))}
+          </ItemGroup>
+        ) : (
+          <Empty className="mt-3 border">
+            <EmptyHeader><EmptyTitle>{t("interviews.empty.pending")}</EmptyTitle></EmptyHeader>
+          </Empty>
+        )}
       </section>
       <ErrorNote error={error} />
     </div>

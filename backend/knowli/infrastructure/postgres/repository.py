@@ -1,4 +1,4 @@
-"""The one PostgreSQL-backed global contribution, interview, and session store."""
+"""PostgreSQL-backed modular stores implementing domain ports."""
 
 import base64
 import json
@@ -19,25 +19,11 @@ from ...domain.user import DuplicateEmail, User, UserCredentials
 from .pool import pool as configured_pool
 
 
-class PostgresStore:
+class PostgresUserStore:
+    """Manages user identity and session persistence."""
+
     def __init__(self, connection_pool: ConnectionPool | None = None):
         self._pool = connection_pool or configured_pool()
-
-    @staticmethod
-    def _stored(row: tuple) -> StoredContribution:
-        return StoredContribution(
-            id=row[0], author_id=row[1], author=row[2], kind=row[3], source=row[4],
-            raw_text=row[5], stage=row[6], revision=row[7], summary=row[8],
-            created_at=row[9], committed_at=row[10], claim_count=row[11],
-        )
-
-    @staticmethod
-    def _interview(row: tuple) -> Interview:
-        return Interview(
-            id=row[0], requester_id=row[1], assignee_id=row[2], title=row[3],
-            brief=row[4] or "", status=row[5], created_at=row[6], started_at=row[7],
-            completed_at=row[8],
-        )
 
     def create_user(self, email: str, display_name: str, password_hash: str) -> User:
         try:
@@ -109,38 +95,20 @@ class PostgresStore:
         with self._pool.connection() as connection:
             connection.execute("DELETE FROM login_session WHERE user_id = %s", (user_id,))
 
-    def create_contribution(
-        self, author_id: str, raw_text: str, source: str, interview_id: str | None = None
-    ) -> StoredContribution:
-        kind = "interview" if interview_id else "voluntary"
-        with self._pool.connection() as connection:
-            if interview_id is None:
-                contribution_id = str(connection.execute(
-                    """INSERT INTO contribution
-                       (author_id, kind, interview_id, source, raw_text, stage)
-                       VALUES (%s, %s, %s, %s, %s, 'claims')
-                       RETURNING id""",
-                    (author_id, kind, interview_id, source, raw_text),
-                ).fetchone()[0])
-            else:
-                row = connection.execute(
-                    """INSERT INTO contribution
-                       (author_id, kind, interview_id, source, raw_text, stage)
-                       VALUES (%s, 'interview', %s, %s, %s, 'claims')
-                       ON CONFLICT (interview_id) DO UPDATE
-                       SET raw_text = EXCLUDED.raw_text, updated_at = now()
-                       WHERE contribution.author_id = EXCLUDED.author_id
-                         AND contribution.raw_text = ''
-                         AND contribution.stage = 'claims'
-                       RETURNING id""",
-                    (author_id, interview_id, source, raw_text),
-                ).fetchone()
-                if row is None:
-                    raise ContributionNotFound(interview_id)
-                contribution_id = str(row[0])
-        contribution = self.get_contribution(contribution_id)
-        assert contribution is not None
-        return contribution
+
+class PostgresInterviewStore:
+    """Manages interview requests and lifecycle."""
+
+    def __init__(self, connection_pool: ConnectionPool | None = None):
+        self._pool = connection_pool or configured_pool()
+
+    @staticmethod
+    def _interview(row: tuple) -> Interview:
+        return Interview(
+            id=row[0], requester_id=row[1], assignee_id=row[2], title=row[3],
+            brief=row[4] or "", status=row[5], created_at=row[6], started_at=row[7],
+            completed_at=row[8],
+        )
 
     def create_interview(
         self, requester_id: str, assignee_id: str, title: str, brief: str
@@ -169,31 +137,32 @@ class PostgresStore:
     def get_interview_by_contribution(self, contribution_id: str) -> Interview | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                """SELECT i.id::text, i.requester_id::text, i.assignee_id::text, i.title, i.brief,
-                          i.status, i.created_at, i.started_at, i.completed_at
-                   FROM interview AS i
-                   JOIN contribution AS c ON c.interview_id = i.id
-                   WHERE c.id = %s""",
+                """SELECT interview.id::text, interview.requester_id::text,
+                          interview.assignee_id::text, interview.title, interview.brief,
+                          interview.status, interview.created_at, interview.started_at,
+                          interview.completed_at
+                   FROM contribution
+                   JOIN interview ON interview.id = contribution.interview_id
+                   WHERE contribution.id = %s""",
                 (contribution_id,),
             ).fetchone()
         return self._interview(row) if row else None
 
     def list_interviews(self, user_id: str, view: InterviewView) -> list[Interview]:
-        filters = {
-            "pending": ("assignee_id = %s AND status = 'pending'", (user_id,)),
-            "sent": ("requester_id = %s AND status <> 'completed'", (user_id,)),
-            "completed": (
-                "status = 'completed' AND (requester_id = %s OR assignee_id = %s)",
-                (user_id, user_id),
-            ),
-        }
-        clause, parameters = filters[view]
+        condition = "assignee_id = %s AND status IN ('pending', 'started')"
+        if view == "sent":
+            condition = "requester_id = %s AND status IN ('pending', 'started')"
+        elif view == "completed":
+            condition = "(requester_id = %s OR assignee_id = %s) AND status = 'completed'"
+
+        params = (user_id, user_id) if view == "completed" else (user_id,)
         with self._pool.connection() as connection:
             rows = connection.execute(
                 f"""SELECT id::text, requester_id::text, assignee_id::text, title, brief,
                            status, created_at, started_at, completed_at
-                    FROM interview WHERE {clause} ORDER BY created_at DESC, id DESC""",
-                parameters,
+                    FROM interview WHERE {condition}
+                    ORDER BY created_at DESC""",
+                params,
             ).fetchall()
         return [self._interview(row) for row in rows]
 
@@ -228,6 +197,65 @@ class PostgresStore:
             ).fetchone()
             assert contribution_row is not None
             return InterviewStart(interview, contribution_row[0])
+
+
+class PostgresContributionStore:
+    """Manages contributions, claims, search, and history."""
+
+    def __init__(self, connection_pool: ConnectionPool | None = None):
+        self._pool = connection_pool or configured_pool()
+
+    @staticmethod
+    def _stored(row: tuple) -> StoredContribution:
+        return StoredContribution(
+            id=row[0], author_id=row[1], author=row[2], kind=row[3], source=row[4],
+            raw_text=row[5], stage=row[6], revision=row[7], summary=row[8],
+            created_at=row[9], committed_at=row[10], claim_count=row[11],
+        )
+
+    def create_contribution(
+        self, author_id: str, raw_text: str, source: str, interview_id: str | None = None
+    ) -> StoredContribution:
+        kind = "interview" if interview_id else "voluntary"
+        with self._pool.connection() as connection:
+            if interview_id is None:
+                contribution_id = str(connection.execute(
+                    """INSERT INTO contribution
+                       (author_id, kind, interview_id, source, raw_text, stage)
+                       VALUES (%s, %s, %s, %s, %s, 'claims')
+                       RETURNING id""",
+                    (author_id, kind, interview_id, source, raw_text),
+                ).fetchone()[0])
+            else:
+                row = connection.execute(
+                    """INSERT INTO contribution
+                       (author_id, kind, interview_id, source, raw_text, stage)
+                       VALUES (%s, 'interview', %s, %s, %s, 'claims')
+                       ON CONFLICT (interview_id) DO UPDATE
+                       SET raw_text = EXCLUDED.raw_text, updated_at = now()
+                       WHERE contribution.author_id = EXCLUDED.author_id
+                         AND contribution.raw_text = ''
+                         AND contribution.stage = 'claims'
+                       RETURNING id""",
+                    (author_id, interview_id, source, raw_text),
+                ).fetchone()
+                if row is None:
+                    raise ContributionNotFound(interview_id)
+                contribution_id = str(row[0])
+
+            stored = connection.execute(
+                """SELECT c.id::text, c.author_id::text, author.display_name, c.kind, c.source,
+                          c.raw_text, c.stage, c.revision, c.summary, c.created_at,
+                          c.committed_at, count(claim.id)
+                   FROM contribution c
+                   JOIN app_user author ON author.id = c.author_id
+                   LEFT JOIN claim ON claim.contribution_id = c.id
+                   WHERE c.id = %s::uuid
+                   GROUP BY c.id, author.display_name""",
+                (contribution_id,),
+            ).fetchone()
+        assert stored is not None
+        return self._stored(stored)
 
     def get_contribution(self, contribution_id: str) -> StoredContribution | None:
         with self._pool.connection() as connection:
@@ -299,25 +327,37 @@ class PostgresStore:
                 for claim in claims:
                     if connection.execute(
                         """SELECT 1 FROM claim
-                           WHERE contribution_id = %s AND draft_key = %s AND title = %s
-                             AND statement = %s AND tags = %s AND embedding = %s::vector""",
-                        (
-                            contribution_id, claim.draft_key, claim.title, claim.statement,
-                            list(claim.tags), list(claim.embedding),
-                        ),
+                           WHERE contribution_id = %s AND draft_key = %s
+                             AND title = %s AND statement = %s""",
+                        (contribution_id, claim.draft_key, claim.title, claim.statement),
                     ).fetchone() is None:
                         raise StaleRevision(contribution_id)
-            elif contribution[1] != expected_revision:
+                row = connection.execute(
+                    """SELECT c.id::text, c.author_id::text, author.display_name, c.kind, c.source,
+                              c.raw_text, c.stage, c.revision, c.summary, c.created_at,
+                              c.committed_at, count(claim.id)
+                       FROM contribution c
+                       JOIN app_user author ON author.id = c.author_id
+                       LEFT JOIN claim ON claim.contribution_id = c.id
+                       WHERE c.id = %s
+                       GROUP BY c.id, author.display_name""",
+                    (contribution_id,),
+                ).fetchone()
+                assert row is not None
+                return self._stored(row)
+
+            if contribution[1] != expected_revision:
                 raise StaleRevision(contribution_id)
-            else:
+
+            with connection.transaction():
+                connection.execute(
+                    "DELETE FROM claim WHERE contribution_id = %s", (contribution_id,)
+                )
                 for claim in claims:
                     claim_id = str(connection.execute(
-                        """INSERT INTO claim
-                           (contribution_id, draft_key, title, statement, tags, embedding)
-                           VALUES (%s, %s, %s, %s, %s, %s::vector)
-                           ON CONFLICT (contribution_id, draft_key) DO UPDATE
-                           SET title = EXCLUDED.title, statement = EXCLUDED.statement,
-                               tags = EXCLUDED.tags, embedding = EXCLUDED.embedding
+                        """INSERT INTO claim (
+                             contribution_id, draft_key, title, statement, tags, embedding
+                           ) VALUES (%s, %s, %s, %s, %s, %s::vector)
                            RETURNING id""",
                         (
                             contribution_id, claim.draft_key, claim.title, claim.statement,
@@ -326,7 +366,8 @@ class PostgresStore:
                     ).fetchone()[0])
                     if claim.supersedes:
                         connection.execute(
-                            "UPDATE claim SET superseded_by = %s WHERE id = ANY(%s::uuid[])",
+                            """UPDATE claim SET superseded_by = %s
+                               WHERE id = ANY(%s::uuid[]) AND superseded_by IS NULL""",
                             (claim_id, list(claim.supersedes)),
                         )
                 connection.execute(
@@ -441,3 +482,10 @@ class PostgresStore:
             for row in rows[:limit]
         ]
         return items, self._history_cursor(items[-1]) if len(rows) > limit else None
+
+
+class PostgresStore(PostgresUserStore, PostgresInterviewStore, PostgresContributionStore):
+    """Composition root repository implementing all domain store ports."""
+
+    def __init__(self, connection_pool: ConnectionPool | None = None):
+        super().__init__(connection_pool=connection_pool)

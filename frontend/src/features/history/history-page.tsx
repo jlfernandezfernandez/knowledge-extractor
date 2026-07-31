@@ -5,6 +5,7 @@ import { ErrorNote } from "@/components/common/error-note";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { historyApi, type HistoryItem } from "./api";
 
@@ -65,7 +66,11 @@ export function HistoryPage() {
       </header>
       <div className="flex flex-col gap-3">
         {loading && items.length === 0 && <><HistorySkeleton /><HistorySkeleton /></>}
-        {!loading && !error && items.length === 0 && <Card><CardContent><p className="text-sm text-muted-foreground">{t("history.empty")}</p></CardContent></Card>}
+        {!loading && !error && items.length === 0 && (
+          <Empty className="border">
+            <EmptyHeader><EmptyTitle>{t("history.empty")}</EmptyTitle></EmptyHeader>
+          </Empty>
+        )}
         {items.map((item) => <HistoryCard key={item.contribution_id} item={item} />)}
       </div>
       {(cursor || hasInitialError) && (

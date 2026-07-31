@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { ErrorNote } from "@/components/common/error-note";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { interviewsApi, type Interview, type InterviewView } from "./api";
 import { InterviewDialog } from "./interview-dialog";
@@ -11,11 +14,29 @@ import { InterviewDialog } from "./interview-dialog";
 function InterviewRow({ interview, onStart }: { interview: Interview; onStart: (interview: Interview) => void }) {
   const { t } = useTranslation();
   return (
-    <li className="flex items-center gap-3 border-b py-4 last:border-0">
-      <div className="min-w-0 flex-1"><p className="font-medium">{interview.title}</p><p className="mt-1 text-sm text-muted-foreground">{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(interview.created_at))}</p></div>
-      <Badge variant="secondary">{t(`interviews.status.${interview.status}`)}</Badge>
-      {interview.status === "pending" && <Button size="sm" onClick={() => onStart(interview)}>{t("interviews.start")}</Button>}
-    </li>
+    <Item>
+      <ItemContent>
+        <ItemTitle>{interview.title}</ItemTitle>
+        <ItemDescription>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(interview.created_at))}</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Badge variant="secondary">{t(`interviews.status.${interview.status}`)}</Badge>
+        {interview.status === "pending" && <Button size="sm" onClick={() => onStart(interview)}>{t("interviews.start")}</Button>}
+      </ItemActions>
+    </Item>
+  );
+}
+
+function InterviewRowsSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-4">
+      {[0, 1].map((row) => (
+        <div key={row} className="flex flex-col gap-2 px-3 py-2.5">
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -61,7 +82,29 @@ export function InterviewsPage() {
       <div className="flex items-center justify-between gap-4"><div><h1 className="text-2xl font-semibold">{t("interviews.title")}</h1><p className="mt-1 text-muted-foreground">{t("interviews.lead")}</p></div><InterviewDialog onCreated={() => load(view)} /></div>
       <Tabs value={view} onValueChange={(value) => { requestVersion.current += 1; setItems([]); setView(value as InterviewView); }} className="mt-8">
         <TabsList><TabsTrigger value="pending">{t("interviews.tabs.pending")}</TabsTrigger><TabsTrigger value="sent">{t("interviews.tabs.sent")}</TabsTrigger><TabsTrigger value="completed">{t("interviews.tabs.completed")}</TabsTrigger></TabsList>
-        {(["pending", "sent", "completed"] as const).map((tab) => <TabsContent key={tab} value={tab}><ul className="mt-4" aria-busy={loading}>{loading ? <li className="py-6 text-sm text-muted-foreground" role="status">{t("interviews.loading")}</li> : items.length ? items.map((item) => <InterviewRow key={item.id} interview={item} onStart={(item) => void start(item)} />) : <li className="py-6 text-sm text-muted-foreground">{t(`interviews.empty.${tab}`)}</li>}</ul></TabsContent>)}
+        {(["pending", "sent", "completed"] as const).map((tab) => (
+          <TabsContent key={tab} value={tab} className="mt-4" aria-busy={loading}>
+            {loading ? (
+              <div role="status">
+                <span className="sr-only">{t("interviews.loading")}</span>
+                <InterviewRowsSkeleton />
+              </div>
+            ) : items.length ? (
+              <ItemGroup className="gap-0">
+                {items.map((item, index) => (
+                  <Fragment key={item.id}>
+                    {index > 0 && <ItemSeparator />}
+                    <InterviewRow interview={item} onStart={(next) => void start(next)} />
+                  </Fragment>
+                ))}
+              </ItemGroup>
+            ) : (
+              <Empty className="border">
+                <EmptyHeader><EmptyTitle>{t(`interviews.empty.${tab}`)}</EmptyTitle></EmptyHeader>
+              </Empty>
+            )}
+          </TabsContent>
+        ))}
       </Tabs>
       <ErrorNote error={error} />
     </div>

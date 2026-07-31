@@ -13,11 +13,14 @@ def _local_model():
 
 
 class ConfiguredEmbedder:
-    """The one implementation of `domain.ports.Embedder`.
+    """The one implementation of `domain.ports.Embedder`."""
 
-    The local model stays lazy: FastEmbed downloads and initializes it only
-    when an authenticated route actually needs embeddings.
-    """
+    def warmup(self) -> None:
+        """Pre-initialize local embedding model to prevent first-request cold-start latency."""
+        try:
+            _local_model()
+        except Exception:
+            pass
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed a batch of texts. Returns one vector per input, in order."""
@@ -29,7 +32,7 @@ class ConfiguredEmbedder:
         for vector in vectors:
             if len(vector) != config.EMBED_DIM:
                 raise ValueError(
-                f"EMBED_DIM is {config.EMBED_DIM} but {config.EMBEDDING_MODEL} returned "
+                    f"EMBED_DIM is {config.EMBED_DIM} but {config.EMBEDDING_MODEL} returned "
                     f"{len(vector)} dimensions. Fix EMBED_DIM and recreate the database "
                     f"(docker compose down -v)."
                 )
