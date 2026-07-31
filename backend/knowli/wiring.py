@@ -13,11 +13,21 @@ from .application.ask import AskService, HistoryService
 from .application.auth import AuthService
 from .application.interviews import InterviewService
 from .application.review import ContributionService
-from .domain.ports import Embedder, Model, Transcriber
+from .domain.ports import (
+    ContributionStore,
+    Embedder,
+    InterviewStore,
+    Model,
+    SessionStore,
+    Transcriber,
+)
 from .infrastructure.embedding.embedder import ConfiguredEmbedder
 from .infrastructure.llm.openai import OpenAICompatibleModel
+from .infrastructure.postgres.contribution_repository import PostgresContributionStore
+from .infrastructure.postgres.interview_repository import PostgresInterviewStore
 from .infrastructure.postgres.pool import create_checkpoint_pool, create_pool
 from .infrastructure.postgres.repository import PostgresStore
+from .infrastructure.postgres.user_repository import PostgresUserStore
 
 
 class AppServices:
@@ -30,6 +40,18 @@ class AppServices:
     @cached_property
     def checkpoint_pool(self) -> ConnectionPool:
         return create_checkpoint_pool()
+
+    @cached_property
+    def user_store(self) -> SessionStore:
+        return PostgresUserStore(self.pool)
+
+    @cached_property
+    def interview_store(self) -> InterviewStore:
+        return PostgresInterviewStore(self.pool)
+
+    @cached_property
+    def contribution_store(self) -> ContributionStore:
+        return PostgresContributionStore(self.pool)
 
     @cached_property
     def store(self) -> PostgresStore:
@@ -53,25 +75,25 @@ class AppServices:
 
     @cached_property
     def auth(self) -> AuthService:
-        return AuthService(self.store, session_days=config.SESSION_DAYS)
+        return AuthService(self.user_store, session_days=config.SESSION_DAYS)
 
     @cached_property
     def contributions(self) -> ContributionService:
         return ContributionService(
-            self.store, self.model, self.embedder, self.checkpointer
+            self.contribution_store, self.model, self.embedder, self.checkpointer
         )
 
     @cached_property
     def ask(self) -> AskService:
-        return AskService(self.store, self.model, self.embedder)
+        return AskService(self.contribution_store, self.model, self.embedder)
 
     @cached_property
     def history(self) -> HistoryService:
-        return HistoryService(self.store)
+        return HistoryService(self.contribution_store)
 
     @cached_property
     def interviews(self) -> InterviewService:
-        return InterviewService(self.store)
+        return InterviewService(self.interview_store)
 
     @cached_property
     def transcriber(self) -> Transcriber:
