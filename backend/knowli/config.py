@@ -19,5 +19,3 @@ TRANSCRIPTION_API_KEY = os.environ.get("TRANSCRIPTION_API_KEY", "local")
 TRANSCRIPTION_BASE_URL = os.environ.get(
     "TRANSCRIPTION_BASE_URL", "http://host.docker.internal:8000/v1"
 )
-# This is intentionally set only by docker-compose.e2e.yml; it is not an HTTP switch.
-E2E_DEPENDENCIES = os.environ.get("KNOWLI_E2E_DEPENDENCIES", "false").lower() == "true"

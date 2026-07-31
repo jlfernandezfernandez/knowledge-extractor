@@ -73,14 +73,11 @@ uv run --directory backend pytest -q
 npm --prefix frontend test
 npm --prefix frontend run lint
 npm --prefix frontend run build
-./scripts/check-product-language.sh
 docker compose config
 ./scripts/smoke-local.sh
 ```
 
 The smoke check expects the local stack started by the quick-start command.
-For deterministic end-to-end browser coverage, use the repository's separate
-Compose override and run `npm --prefix frontend run test:e2e`.
 
 ## Project map
 
@@ -89,17 +86,14 @@ Compose override and run `npm --prefix frontend run test:e2e`.
 | `frontend/src/` | React interface, routes, feature pages, translations, and component tests. |
 | `backend/knowli/domain/` | Stable business values and ports. |
 | `backend/knowli/application/` | Review, Ask, account, and interview use cases. |
-| `backend/knowli/infrastructure/` | PostgreSQL, embeddings, model, and E2E implementations. |
+| `backend/knowli/infrastructure/` | PostgreSQL, embeddings, and model implementations. |
 | `backend/knowli/interfaces/http/` | FastAPI routes, request schemas, authentication, and error mapping. |
-| `docs/` | Architecture, concepts, decisions, local setup, and a guided code tour. |
-| `scripts/` | Local smoke and language-boundary checks. |
+| `docs/` | Architecture and local setup guides. |
+| `scripts/` | Local smoke checks. |
 
 ## Read next
 
 - [Architecture](docs/architecture.md) — the runtime shape and boundaries.
-- [Concepts](docs/concepts.md) — the vocabulary behind reviewed retrieval.
-- [Learning guide](docs/learning-guide.md) — follow four requests through the code.
-- [Decisions](docs/decisions.md) — the deliberate trade-offs.
 - [Local models](docs/local-models.md) — model and embedding configuration.
 
 ## License

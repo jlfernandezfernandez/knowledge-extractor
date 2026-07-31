@@ -15,7 +15,6 @@ from .application.interviews import InterviewService
 from .application.review import ContributionService
 from .domain.ports import Embedder, Model, Transcriber
 from .infrastructure.embedding.embedder import ConfiguredEmbedder
-from .infrastructure.e2e import E2EEmbedder, E2EModel
 from .infrastructure.llm.openai import OpenAICompatibleModel
 from .infrastructure.postgres.pool import create_checkpoint_pool, create_pool
 from .infrastructure.postgres.repository import PostgresStore
@@ -38,11 +37,11 @@ class AppServices:
 
     @cached_property
     def model(self) -> Model:
-        return E2EModel() if config.E2E_DEPENDENCIES else OpenAICompatibleModel()
+        return OpenAICompatibleModel()
 
     @cached_property
     def embedder(self) -> Embedder:
-        return E2EEmbedder() if config.E2E_DEPENDENCIES else ConfiguredEmbedder()
+        return ConfiguredEmbedder()
 
     @cached_property
     def checkpointer(self) -> Any:
