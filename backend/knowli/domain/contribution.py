@@ -26,12 +26,14 @@ class StoredContribution:
     created_at: datetime
     committed_at: datetime | None
     claim_count: int
+    source: str
 
 
 @dataclass(frozen=True)
 class HistoryItem:
     contribution_id: str
     author: str
+    source: str
     summary: str
     claim_count: int
     created_at: datetime

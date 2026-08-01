@@ -6,7 +6,6 @@ import { AuthScreen } from "@/features/auth/auth-screen";
 import { useAuth } from "@/features/auth/auth-provider";
 import { HomePage } from "@/features/home/home-page";
 import { InterviewsPage } from "@/features/interviews/interviews-page";
-import { AskPage } from "@/features/ask/ask-page";
 import { HistoryPage } from "@/features/history/history-page";
 import { ReviewPage } from "@/features/review/review-page";
 import type { AuthenticatedUser } from "@/features/auth/types";
@@ -35,7 +34,6 @@ export function createRoutes(user: AuthenticatedUser | null, options: RouterOpti
       element: <ProtectedRoute user={user} onLogout={options.onLogout} />,
       children: [
         { path: "/", element: <HomePage /> },
-        { path: "/ask", element: <AskPage /> },
         { path: "/interviews", element: <InterviewsPage /> },
         { path: "/history", element: <HistoryPage /> },
         { path: "/review/:id", element: <ReviewPage /> },

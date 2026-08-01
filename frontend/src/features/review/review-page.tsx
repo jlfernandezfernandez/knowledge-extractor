@@ -3,11 +3,10 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useParams } from "react-router";
 import { ErrorNote } from "@/components/common/error-note";
 import { ReviewFlow } from "@/components/review/review-flow";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { ApiError, API_URL } from "@/lib/api";
 import { contributionsApi } from "@/features/contributions/api";
+import { ContributionInput } from "@/features/contributions/contribution-input";
 import type { ClaimDraft, Contribution } from "@/features/contributions/types";
 import { interviewsApi, type Interview } from "@/features/interviews/api";
 
@@ -32,7 +31,6 @@ export function ReviewPage() {
   const [interview, setInterview] = useState<Interview | null>(routeInterview ?? null);
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [drafts, dispatch] = useReducer(draftReducer, []);
-  const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -58,7 +56,7 @@ export function ReviewPage() {
   }, [id, location.key, routeInterview]);
 
   useEffect(() => {
-    if (!contribution || contribution.kind !== "interview" || contribution.raw_text || interview) return;
+    if (!contribution || contribution.source !== "interview" || contribution.raw_text || interview) return;
     void interviewsApi.byContribution(id).then((recovered) => {
       setInterview(recovered);
     }).catch(setError);
@@ -80,28 +78,33 @@ export function ReviewPage() {
     }
   }
 
-  async function submitAnswer() {
-    if (!interview || !answer.trim()) return;
+  async function submitAnswer(text: string) {
+    if (!interview || !text.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      update(await interviewsApi.answer(interview.id, answer.trim()));
+      update(await interviewsApi.answer(interview.id, text.trim()));
     } catch (failure) { setError(failure); } finally { setBusy(false); }
   }
 
   if (!contribution) return <div className="mx-auto max-w-3xl px-4 py-10"><p className="flex items-center gap-2 text-muted-foreground"><Spinner />{t("review.loading")}</p><ErrorNote error={error} /></div>;
 
-  const interviewCapture = interview && contribution.kind === "interview" && !contribution.raw_text;
+  const interviewCapture = interview && contribution.source === "interview" && !contribution.raw_text;
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10">
       <p className="text-sm font-medium text-muted-foreground">{t("review.progress", { stage: stageTitle(contribution.stage, t) })}</p>
       {interviewCapture ? (
-        <section aria-labelledby="interview-answer-title" className="mt-4">
-          <h1 id="interview-answer-title" className="text-2xl font-semibold">{interview.title}</h1>
-          {interview.brief && <p className="mt-2 text-muted-foreground">{interview.brief}</p>}
-          <Textarea aria-label={t("review.answerLabel")} value={answer} onChange={(event) => setAnswer(event.target.value)} className="mt-6 min-h-36" placeholder={t("review.answerPlaceholder")} />
-          <Button className="mt-3" onClick={() => void submitAnswer()} disabled={busy || !answer.trim()}>{t("review.submitAnswer")}</Button>
-        </section>
+        <div className="mt-4">
+          <ContributionInput
+            title={interview.title}
+            subtitle={interview.brief}
+            placeholder={t("review.answerPlaceholder")}
+            textareaAriaLabel={t("review.answerLabel")}
+            submitLabel={t("review.submitAnswer")}
+            busy={busy}
+            onSubmit={(text) => submitAnswer(text)}
+          />
+        </div>
       ) : <ReviewFlow
         contribution={contribution}
         drafts={drafts}

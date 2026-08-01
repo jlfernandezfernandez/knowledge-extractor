@@ -9,7 +9,7 @@ from typing import Callable
 from pwdlib import PasswordHash
 
 from ..domain.ports import SessionStore
-from ..domain.user import DuplicateEmail, User
+from ..domain.user import User
 
 DEMO_EMAIL = "demo@knowli.local"
 DEMO_PASSWORD = "demo"

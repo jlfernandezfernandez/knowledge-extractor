@@ -48,8 +48,9 @@ class FakeInterviewService:
 
 
 class FakeAskService:
-    def ask(self, question):
-        return {"answer": "Answer", "citations": [], "sufficient_evidence": True}
+    def stream_ask(self, question, user_id, thread_id):
+        yield {"type": "token", "content": "Answer"}
+        yield {"type": "done"}
 
     def history(self, cursor, limit):
         return {"items": [], "next_cursor": None}
@@ -111,7 +112,9 @@ async def test_global_routes_require_auth_and_use_the_global_contract():
         answered = await client.post(
             "/api/interviews/interview-1/answer", json={"raw_text": "We deploy on Tuesdays."}
         )
-        asked = await client.post("/api/ask", json={"question": "When do we deploy?"})
+        asked = await client.get(
+            "/api/ask/stream", params={"question": "When do we deploy?", "thread_id": "t-1"}
+        )
         listed_history = await client.get("/api/history?limit=20")
 
     assert listed.json()["items"][0]["assignee_id"] == "assignee"
@@ -121,7 +124,7 @@ async def test_global_routes_require_auth_and_use_the_global_contract():
     assert interview_service.answer_calls[0][:3] == (
         "assignee", "interview-1", "We deploy on Tuesdays."
     )
-    assert asked.json()["sufficient_evidence"] is True
+    assert '"type": "token"' in asked.text
     assert listed_history.json() == {"items": [], "next_cursor": None}
 
 

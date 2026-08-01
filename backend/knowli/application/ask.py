@@ -1,9 +1,10 @@
-"""Global claim retrieval, cited answers, and contribution history."""
+"""Global claim retrieval, the grounded answer agent, and contribution history."""
 
+from collections.abc import Iterator
 from dataclasses import asdict
 
-from ..domain.claim import ClaimSearchResult
-from ..domain.ports import ContributionStore, Embedder, Model
+from ..domain.ports import ContributionStore, Embedder, InterviewStore, Model
+
 
 class InvalidQuestion(ValueError):
     pass
@@ -14,73 +15,62 @@ class InvalidHistoryCursor(ValueError):
 
 
 class AskService:
+    """Answers questions from stored claims, with tools for what claims cannot hold."""
+
     def __init__(
         self,
         store: ContributionStore,
         model: Model,
         embedder: Embedder,
+        interviews: InterviewStore,
         *,
         retrieve_limit: int = 8,
     ) -> None:
         self._store = store
         self._model = model
         self._embedder = embedder
+        self._interviews = interviews
         self._retrieve_limit = retrieve_limit
 
-    def ask(self, question: str) -> dict:
+    def stream_ask(self, question: str, user_id: str, thread_id: str) -> Iterator[dict]:
         if not question.strip():
             raise InvalidQuestion("question is required")
         claims = self._store.search_claims(
             question, self._embedder.embed([question])[0], self._retrieve_limit
         )
-        if not claims:
-            return {
-                "answer": "",
-                "citations": [],
-                "sufficient_evidence": False,
-            }
-        answer = self._model.answer(question, [asdict(claim) for claim in claims])
-        retrieved_ids = {claim.id for claim in claims}
-        cited_ids = retrieved_ids.intersection(answer.cited_ids)
-        citations = [self._citation(claim) for claim in claims if claim.id in cited_ids]
-        return {
-            "answer": answer.answer,
-            "citations": citations,
-            "sufficient_evidence": bool(citations),
-        }
-
-    def stream_ask(self, question: str):
-        if not question.strip():
-            raise InvalidQuestion("question is required")
-        claims = self._store.search_claims(
-            question, self._embedder.embed([question])[0], self._retrieve_limit
+        # Retrieval can legitimately come back empty ("what interviews do I have?"):
+        # the prompt, not this guard, keeps the agent inside the claims and the tools.
+        claims_payload = [asdict(claim) for claim in claims]
+        if claims_payload:
+            yield {"type": "claims", "items": claims_payload}
+        yield from self._model.stream_answer(
+            question,
+            claims_payload,
+            tools=self._tools(user_id),
+            # Namespaced so a guessed thread id cannot read another person's conversation.
+            thread_id=f"{user_id}:{thread_id}",
         )
-        citations = [self._citation(claim) for claim in claims]
-        yield {"type": "claims", "citations": citations}
-
-        if not claims:
-            yield {"type": "done"}
-            return
-
-        if hasattr(self._model, "stream_answer"):
-            for token in self._model.stream_answer(question, [asdict(claim) for claim in claims]):
-                yield {"type": "token", "content": token}
-        else:
-            answer = self._model.answer(question, [asdict(claim) for claim in claims])
-            yield {"type": "token", "content": answer.answer}
-
         yield {"type": "done"}
 
-    @staticmethod
-    def _citation(claim: ClaimSearchResult) -> dict:
-        return {
-            "id": claim.id,
-            "title": claim.title,
-            "statement": claim.statement,
-            "author": claim.author,
-            "contribution_id": claim.contribution_id,
-            "contribution_created_at": claim.contribution_created_at,
-        }
+    def _tools(self, user_id: str) -> list:
+        """Plain callables: the agent adapter turns their signature and docstring into
+        the tool schema, so nothing here depends on the LLM library."""
+        store = self._interviews
+
+        def list_my_interviews() -> str:
+            """List the interviews assigned to the person asking that are still open,
+            with their title, status and request date. Use this whenever they ask about
+            their interviews, what they have been asked, or what is pending."""
+            interviews = store.list_interviews(user_id, "pending")
+            if not interviews:
+                return "No open interviews are assigned to this person."
+            return "\n".join(
+                f"- {interview.title} ({interview.status}, requested "
+                f"{interview.created_at:%Y-%m-%d})"
+                for interview in interviews
+            )
+
+        return [list_my_interviews]
 
 
 class HistoryService:

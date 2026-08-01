@@ -43,9 +43,3 @@ class ClaimSearchResult:
     contribution_created_at: datetime
 
 
-@dataclass(frozen=True)
-class AnswerResult:
-    """A model answer and the claim ids it says support that answer."""
-
-    answer: str
-    cited_ids: tuple[str, ...]

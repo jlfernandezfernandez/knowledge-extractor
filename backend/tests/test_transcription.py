@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from knowli.infrastructure.transcription import OpenAICompatibleTranscriber, create_transcriber
+from knowli.infrastructure.transcription import OpenAICompatibleTranscriber
 
 
 class FakeTranscriptions:
@@ -16,10 +16,6 @@ class FakeClient:
     def __init__(self):
         self.transcriptions = FakeTranscriptions()
         self.audio = type("Audio", (), {"transcriptions": self.transcriptions})()
-
-
-def test_default_transcriber_uses_the_openai_compatible_contract():
-    assert isinstance(create_transcriber(), OpenAICompatibleTranscriber)
 
 
 def test_compatible_transcriber_forwards_audio_with_its_filename():

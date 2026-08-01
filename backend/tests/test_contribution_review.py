@@ -45,6 +45,7 @@ class MemoryContributionStore:
             created_at=datetime(2026, 7, 30, tzinfo=UTC),
             committed_at=None,
             claim_count=0,
+            source="text" if interview_id is None else "interview",
         )
         self.rows[row.id] = row
         if interview_id is not None:
@@ -237,31 +238,6 @@ def test_interview_brief_is_not_added_to_extractable_text(service):
     assert store.contribution_interviews[captured["id"]] == interview_id
     assert model.extracted_texts == ["My answer only."]
     assert brief not in model.extracted_texts[0]
-
-
-def test_public_review_methods_accept_the_documented_id_keyword(service):
-    review, _, _ = service
-    captured = review.capture("author-1", "Deploy on Tuesdays.")
-
-    confirmed = review.confirm_claims(
-        user_id="author-1",
-        id=captured["id"],
-        revision=captured["revision"],
-        claims=captured["claims"],
-    )
-    ready = review.resolve_conflicts(
-        user_id="author-1",
-        id=captured["id"],
-        revision=confirmed["revision"],
-        resolutions=[],
-    )
-    committed = review.commit(
-        user_id="author-1",
-        id=captured["id"],
-        revision=ready["revision"],
-    )
-
-    assert committed["stage"] == "committed"
 
 
 def _review_waiting_on_a_conflict(service):

@@ -1,5 +1,6 @@
 """PostgreSQL implementation of the Interview store (InterviewStore port)."""
 
+import psycopg
 from psycopg_pool import ConnectionPool
 
 from ...domain.interview import Interview, InterviewStart, InterviewView
@@ -22,11 +23,14 @@ class PostgresInterviewStore:
         )
 
     def get_user_by_id(self, user_id: str) -> User | None:
-        with self._pool.connection() as connection:
-            row = connection.execute(
-                "SELECT id::text, email, display_name FROM app_user WHERE id = %s", (user_id,)
-            ).fetchone()
-        return User(id=row[0], email=row[1], display_name=row[2]) if row else None
+        try:
+            with self._pool.connection() as connection:
+                row = connection.execute(
+                    "SELECT id::text, email, display_name FROM app_user WHERE id = %s", (user_id,)
+                ).fetchone()
+            return User(id=row[0], email=row[1], display_name=row[2]) if row else None
+        except psycopg.DataError:
+            return None
 
     def create_interview(
         self, requester_id: str, assignee_id: str, title: str, brief: str
@@ -43,14 +47,34 @@ class PostgresInterviewStore:
         return self._interview(row)
 
     def get_interview(self, interview_id: str) -> Interview | None:
-        with self._pool.connection() as connection:
-            row = connection.execute(
-                """SELECT id::text, requester_id::text, assignee_id::text, title, brief,
-                          status, created_at, started_at, completed_at
-                   FROM interview WHERE id = %s""",
-                (interview_id,),
-            ).fetchone()
-        return self._interview(row) if row else None
+        try:
+            with self._pool.connection() as connection:
+                row = connection.execute(
+                    """SELECT id::text, requester_id::text, assignee_id::text, title, brief,
+                              status, created_at, started_at, completed_at
+                       FROM interview WHERE id = %s""",
+                    (interview_id,),
+                ).fetchone()
+            return self._interview(row) if row else None
+        except psycopg.DataError:
+            return None
+
+    def get_interview_by_contribution(self, contribution_id: str) -> Interview | None:
+        try:
+            with self._pool.connection() as connection:
+                row = connection.execute(
+                    """SELECT interview.id::text, interview.requester_id::text,
+                              interview.assignee_id::text, interview.title, interview.brief,
+                              interview.status, interview.created_at, interview.started_at,
+                              interview.completed_at
+                       FROM interview
+                       JOIN contribution ON contribution.interview_id = interview.id
+                       WHERE contribution.id = %s""",
+                    (contribution_id,),
+                ).fetchone()
+            return self._interview(row) if row else None
+        except psycopg.DataError:
+            return None
 
     def list_interviews(self, user_id: str, view: InterviewView) -> list[Interview]:
         condition = "assignee_id = %s AND status IN ('pending', 'started')"

@@ -1,9 +1,10 @@
 """The small external contracts used by Knowli services."""
 
+from collections.abc import Callable, Iterator, Sequence
 from datetime import datetime
 from typing import Any, BinaryIO, Protocol
 
-from .claim import AnswerResult, ClaimDraft, ClaimSearchResult, ClaimToCommit, ContributionStage
+from .claim import ClaimDraft, ClaimSearchResult, ClaimToCommit, ContributionStage
 from .contribution import HistoryItem, StoredContribution
 from .interview import Interview, InterviewStart, InterviewView
 from .user import User, UserCredentials
@@ -16,7 +17,14 @@ class Model(Protocol):
         self, claims: list[ClaimDraft], candidates: list[dict[str, Any]]
     ) -> list[dict[str, Any]]: ...
 
-    def answer(self, question: str, claims: list[dict[str, Any]]) -> AnswerResult: ...
+    def stream_answer(
+        self,
+        question: str,
+        claims: list[dict[str, Any]],
+        *,
+        tools: Sequence[Callable[..., Any]] = (),
+        thread_id: str | None = None,
+    ) -> Iterator[dict[str, Any]]: ...
 
 
 class Embedder(Protocol):

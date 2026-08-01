@@ -1,44 +1,48 @@
-# Knowli
+# 🦉 Knowli
 
-Human-in-the-loop knowledge extractor built with FastAPI, LangGraph, PostgreSQL, and React.
+Human-in-the-loop knowledge extractor built with **FastAPI**, **LangGraph**, **PostgreSQL (pgvector)**, and **React**.
 
-## Prerequisites & Local AI Setup
+Knowli transforms text and voice recordings into a structured, auditable knowledge base with human review, automated conflict detection, and inline RAG citations.
 
-Knowli uses OpenAI-compatible endpoints for LLM and Speech-to-Text (STT) transcription. By default it expects local models:
-
-### 1. Text LLM (Default: Ollama)
-```bash
-ollama pull qwen3.5:9b
-ollama serve
-```
-
-### 2. Audio Transcription (Default: Local Whisper / Speaches)
-Expects an OpenAI-compatible `/audio/transcriptions` service running locally on port 8000 (e.g. [Speaches](https://github.com/speaches-ai/speaches)).
-
-> **Using Cloud Providers (OpenAI / Groq / OpenRouter):**
-> Change `MODEL_*` and `TRANSCRIPTION_*` variables in `.env`.
-
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
+# 1. Copy environment template
 cp .env.example .env
+
+# 2. Start PostgreSQL, API, Frontend, and Audio STT (Speaches)
 docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) (Demo account: `demo@knowli.local` / `demo`).
+Open **[http://localhost:3000](http://localhost:3000)** (Demo account: `demo@knowli.local` / `demo`).
 
-## Development & Tests
+---
+
+## 🛠️ Prerequisites & LLM Setup
+
+Knowli connects to an OpenAI-compatible endpoint for text generation (Default: Ollama):
 
 ```bash
-# Backend unit tests
-uv run --directory backend pytest --ignore=tests/integration -q
-
-# Frontend tests & build
-npm --prefix frontend test
-npm --prefix frontend run lint
-npm --prefix frontend run build
+ollama pull qwen3.5:9b
+OLLAMA_ORIGINS="*" ollama serve
 ```
 
-## License
+> 💡 **Cloud Providers (OpenAI / Groq / OpenRouter):** Update `MODEL_*` and `TRANSCRIPTION_*` variables in `.env`.
+
+---
+
+## 🧪 Development & Tests
+
+```bash
+# Backend unit & integration tests
+cd backend && uv run pytest
+
+# Frontend tests & build
+cd frontend && npm test && npm run build
+```
+
+---
+
+## 📄 License
 
 Apache-2.0

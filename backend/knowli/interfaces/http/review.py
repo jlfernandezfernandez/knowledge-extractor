@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterable
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, Request, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from ... import wiring
@@ -109,6 +109,10 @@ def back(
     return service.back(user.id, contribution_id, body.revision)
 
 
+# `response_class` is the marker that makes FastAPI encode what this route yields as
+# SSE and add the `Cache-Control: no-cache` and `X-Accel-Buffering: no` headers itself.
+# Returning an EventSourceResponse instead skips that layer, and the raw
+# ServerSentEvent objects reach Starlette, which calls `.encode()` on them and dies.
 @router.get("/{id}/events", response_class=EventSourceResponse)
 async def events(
     id: str,

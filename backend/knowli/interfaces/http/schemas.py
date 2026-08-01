@@ -71,28 +71,10 @@ class InterviewStartResponse(BaseModel):
     contribution_id: str
 
 
-class AskRequest(BaseModel):
-    question: str
-
-
-class CitationResponse(BaseModel):
-    id: str
-    title: str
-    statement: str
-    author: str
-    contribution_id: str
-    contribution_created_at: datetime
-
-
-class AskResponse(BaseModel):
-    answer: str
-    citations: list[CitationResponse]
-    sufficient_evidence: bool
-
-
 class HistoryItemResponse(BaseModel):
     contribution_id: str
     author: str
+    source: str
     summary: str
     claim_count: int
     created_at: datetime
@@ -128,5 +110,6 @@ class ContributionResponse(BaseModel):
     created_at: datetime
     committed_at: datetime | None
     claim_count: int
+    source: str
     claims: list[ClaimDraft]
     conflicts: list[dict[str, Any]]

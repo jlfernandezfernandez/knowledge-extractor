@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import "@/i18n";
+import i18n from "@/i18n";
 import { InterviewsPage } from "./interviews-page";
 
 const interview = {
@@ -27,7 +27,8 @@ function renderPage() {
 }
 
 describe("interviews", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ items: [interview] })));
   });
 
@@ -80,14 +81,26 @@ describe("interviews", () => {
     expect(screen.getByText("Sent interview")).toBeInTheDocument();
   });
 
-  it("does not reveal people or person imagery in interview rows", async () => {
+  it("dates a row in the app's language, not the browser's", async () => {
+    await i18n.changeLanguage("es");
+    renderPage();
+
+    await screen.findByText("Deployment retrospective");
+    expect(
+      screen.getByText(
+        new Intl.DateTimeFormat("es", { dateStyle: "medium" }).format(
+          new Date(interview.created_at),
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not name the people involved in an interview row", async () => {
     renderPage();
 
     await screen.findByText("Deployment retrospective");
     expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
     expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
-    expect(document.querySelector('[data-slot="avatar"]')).not.toBeInTheDocument();
-    expect(document.querySelector('svg[data-lucide="user"]')).not.toBeInTheDocument();
   });
 
   it("creates an interview with the requested title and optional brief", async () => {

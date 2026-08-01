@@ -24,8 +24,3 @@ class Comparison(BaseModel):
 
 class Comparisons(BaseModel):
     comparisons: list[Comparison] = Field(default_factory=list)
-
-
-class Answer(BaseModel):
-    answer: str
-    cited_ids: list[str] = Field(default_factory=list)

@@ -9,7 +9,6 @@ const base = {
   id: "contribution-1",
   author_id: "user-1",
   author: "Ada Lovelace",
-  kind: "contribution",
   source: "text",
   raw_text: "Production deployments happen Friday.",
   revision: 2,
@@ -88,8 +87,8 @@ describe("contribution review", () => {
       id: "interview-1", requester_id: "requester-1", assignee_id: "user-1", title: "Deployment retrospective", brief: "Explain the Friday release process.", status: "started" as const, created_at: "2026-07-30T08:00:00Z", started_at: "2026-07-30T08:01:00Z", completed_at: null,
     };
     const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "", stage: "claims" }));
-    fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "We deploy on Fridays.", stage: "claims" }));
+    fetchMock.mockResolvedValueOnce(response({ ...base, source: "interview", raw_text: "", stage: "claims" }));
+    fetchMock.mockResolvedValueOnce(response({ ...base, source: "interview", raw_text: "We deploy on Fridays.", stage: "claims" }));
     renderReview({ pathname: "/review/contribution-1", state: { interview } });
 
     expect(await screen.findByRole("heading", { name: "Deployment retrospective" })).toBeInTheDocument();
@@ -106,11 +105,11 @@ describe("contribution review", () => {
 
   it("recovers and submits interview context from the server on a direct route", async () => {
     const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "", stage: "claims" }));
+    fetchMock.mockResolvedValueOnce(response({ ...base, source: "interview", raw_text: "", stage: "claims" }));
     fetchMock.mockResolvedValueOnce(response({
       id: "interview-1", requester_id: "requester-1", assignee_id: "user-1", title: "Deployment retrospective", brief: "Explain the Friday release process.", status: "started", created_at: "2026-07-30T08:00:00Z", started_at: "2026-07-30T08:01:00Z", completed_at: null,
     }));
-    fetchMock.mockResolvedValueOnce(response({ ...base, kind: "interview", raw_text: "We deploy on Fridays.", stage: "claims" }));
+    fetchMock.mockResolvedValueOnce(response({ ...base, source: "interview", raw_text: "We deploy on Fridays.", stage: "claims" }));
     renderReview();
 
     expect(await screen.findByRole("heading", { name: "Deployment retrospective" })).toBeInTheDocument();
