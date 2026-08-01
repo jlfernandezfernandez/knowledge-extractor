@@ -31,10 +31,10 @@ OLLAMA_ORIGINS="*" ollama serve
 
 ### 2. Audio Transcription (Default: Local Speaches / Faster-Whisper / Parakeet)
 
-Run the included Speaches container via Docker Compose profile:
+The Speaches STT container runs automatically with Docker Compose:
 
 ```bash
-docker compose --profile stt up --build
+docker compose up --build
 ```
 
 > 💡 **Cloud APIs (OpenAI / Groq / OpenRouter):** Update `MODEL_*` and `TRANSCRIPTION_*` variables in `.env`.

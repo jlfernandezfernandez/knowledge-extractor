@@ -73,7 +73,6 @@ services:
 
   speaches:
     image: ghcr.io/speaches-ai/speaches:latest-cpu
-    profiles: ["stt", "full"]
     ports:
       - "8000:8000"
     environment:
