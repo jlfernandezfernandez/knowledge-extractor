@@ -10,7 +10,7 @@ Knowli transforms text and voice recordings into a structured, auditable knowled
 # 1. Copy environment template
 cp .env.example .env
 
-# 2. Start PostgreSQL, API, and Frontend
+# 2. Start PostgreSQL, API, Frontend, and Audio STT (Speaches)
 docker compose up --build
 ```
 
@@ -18,26 +18,16 @@ Open **[http://localhost:3000](http://localhost:3000)** (Demo account: `demo@kno
 
 ---
 
-## 🛠️ Prerequisites & Local AI Setup
+## 🛠️ Prerequisites & LLM Setup
 
-Knowli connects to OpenAI-compatible endpoints for LLM and Speech-to-Text (STT):
-
-### 1. LLM (Default: Ollama)
+Knowli connects to an OpenAI-compatible endpoint for text generation (Default: Ollama):
 
 ```bash
 ollama pull qwen3.5:9b
 OLLAMA_ORIGINS="*" ollama serve
 ```
 
-### 2. Audio Transcription (Default: Local Speaches / Faster-Whisper / Parakeet)
-
-The Speaches STT container runs automatically with Docker Compose:
-
-```bash
-docker compose up --build
-```
-
-> 💡 **Cloud APIs (OpenAI / Groq / OpenRouter):** Update `MODEL_*` and `TRANSCRIPTION_*` variables in `.env`.
+> 💡 **Cloud Providers (OpenAI / Groq / OpenRouter):** Update `MODEL_*` and `TRANSCRIPTION_*` variables in `.env`.
 
 ---
 
