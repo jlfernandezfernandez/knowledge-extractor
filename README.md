@@ -31,10 +31,10 @@ OLLAMA_ORIGINS="*" ollama serve
 
 ### 2. Audio Transcription (Default: Local Speaches / Faster-Whisper / Parakeet)
 
-Expects an OpenAI-compatible `/v1/audio/transcriptions` service running on port 8000:
+Run the included Speaches container via Docker Compose profile:
 
 ```bash
-docker run -d -p 8000:8000 ghcr.io/speaches-ai/speaches:latest-cpu
+docker compose --profile stt up --build
 ```
 
 > 💡 **Cloud APIs (OpenAI / Groq / OpenRouter):** Update `MODEL_*` and `TRANSCRIPTION_*` variables in `.env`.

@@ -71,6 +71,19 @@ services:
       timeout: 3s
       retries: 20
 
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    profiles: ["stt", "full"]
+    ports:
+      - "8000:8000"
+    environment:
+      - ALLOW_ORIGINS=*
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   knowli_pgdata:
     name: knowli_pgdata
