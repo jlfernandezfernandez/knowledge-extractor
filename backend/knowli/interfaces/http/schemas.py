@@ -34,10 +34,6 @@ class AuthResponse(BaseModel):
     user: UserResponse
 
 
-class TranscriptionResponse(BaseModel):
-    text: str
-
-
 class ContributionCaptureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

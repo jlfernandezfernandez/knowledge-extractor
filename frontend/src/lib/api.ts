@@ -45,3 +45,28 @@ export function post<T>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
+
+/** EventSource cannot POST a recording, so this is the one stream read by hand. */
+export async function requestSse<T>(path: string, init: RequestInit, onEvent: (event: T) => void): Promise<void> {
+  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: "include" });
+  if (!response.ok) throw new ApiError(errorBody(await response.json().catch(() => null), response));
+  if (!response.body) return;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return;
+
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      const data = frame.split("\n").find((line) => line.startsWith("data: "));
+      if (data) onEvent(JSON.parse(data.slice(6)) as T);
+    }
+  }
+}

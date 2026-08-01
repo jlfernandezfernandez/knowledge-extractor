@@ -114,6 +114,19 @@ describe("authentication", () => {
     expect(screen.getByLabelText("Email")).toHaveAttribute("aria-describedby", "email-error");
   });
 
+  it("displays invalid credentials error on failed login", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(response({ code: "unauthenticated", message: "sign in required" }, 401));
+    fetchMock.mockResolvedValueOnce(response({ code: "invalid_credentials", message: "invalid email or password" }, 401));
+    renderAuth("login");
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "wrong@example.test" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "wrongpass" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Invalid email or password.");
+  });
+
   it("restores an existing session", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ user: ada }));
     renderAuth("login");

@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { Eye, EyeOff } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "./auth-provider";
 
@@ -18,6 +20,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const isRegister = mode === "register";
   const copy = isRegister ? "auth.register" : "auth.login";
 
@@ -68,7 +71,28 @@ export function AuthScreen({ mode }: AuthScreenProps) {
               </Field>
               <Field data-invalid={Boolean(fields.password) || undefined}>
                 <FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel>
-                <Input id="password" name="password" required type="password" minLength={isRegister ? 8 : undefined} autoComplete={isRegister ? "new-password" : "current-password"} aria-invalid={Boolean(fields.password)} aria-describedby={fields.password ? "password-error" : undefined} />
+                <InputGroup>
+                  <InputGroupInput
+                    id="password"
+                    name="password"
+                    required
+                    type={showPassword ? "text" : "password"}
+                    minLength={isRegister ? 8 : undefined}
+                    autoComplete={isRegister ? "new-password" : "current-password"}
+                    aria-invalid={Boolean(fields.password)}
+                    aria-describedby={fields.password ? "password-error" : undefined}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      type="button"
+                      size="icon-xs"
+                      aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
                 {fieldError("password")}
               </Field>
             </FieldGroup>

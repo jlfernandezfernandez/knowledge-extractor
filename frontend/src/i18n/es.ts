@@ -22,6 +22,8 @@ export const es: typeof en = {
     displayName: "Nombre",
     email: "Correo electrónico",
     password: "Contraseña",
+    showPassword: "Mostrar contraseña",
+    hidePassword: "Ocultar contraseña",
     login: { title: "Iniciar sesión", submit: "Iniciar sesión", alternate: "Crear una cuenta" },
     register: { title: "Crear cuenta", submit: "Crear cuenta", alternate: "Inicia sesión" },
   },
@@ -54,8 +56,10 @@ export const es: typeof en = {
   errors: {
     requestFailed: "Ha ocurrido un error. Inténtalo de nuevo.",
     unauthenticated: "Inicia sesión para continuar.",
+    invalid_credentials: "Email o contraseña incorrectos.",
     model_unavailable: "Configura un modelo para usar Preguntar.",
     transcription_unavailable: "La transcripción no está disponible.",
+    no_speech_detected: "No se ha oído voz en esa grabación.",
     invalidField: "Revisa este campo.",
   },
   history: {

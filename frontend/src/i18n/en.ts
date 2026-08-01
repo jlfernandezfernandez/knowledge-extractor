@@ -20,6 +20,8 @@ export const en = {
     displayName: "Name",
     email: "Email",
     password: "Password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     login: { title: "Sign in", submit: "Sign in", alternate: "Create an account" },
     register: { title: "Create account", submit: "Create account", alternate: "Sign in instead" },
   },
@@ -52,8 +54,10 @@ export const en = {
   errors: {
     requestFailed: "Something went wrong. Try again.",
     unauthenticated: "Sign in to continue.",
+    invalid_credentials: "Invalid email or password.",
     model_unavailable: "Configure a model to use Ask.",
     transcription_unavailable: "Transcription is unavailable.",
+    no_speech_detected: "No speech was heard in that recording.",
     invalidField: "Check this field.",
   },
   history: {

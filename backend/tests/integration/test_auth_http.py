@@ -85,6 +85,21 @@ async def test_login_me_and_logout_follow_the_session_contract():
 
 
 @pytest.mark.anyio
+async def test_login_with_invalid_credentials_returns_401_invalid_credentials():
+    """Failed login attempt must return invalid_credentials error code."""
+    async with _client() as client:
+        response = await client.post(
+            "/api/auth/login",
+            json={"email": "wrong@example.test", "password": "invalidpassword"},
+        )
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "code": "invalid_credentials", "message": "invalid email or password"
+    }
+
+
+@pytest.mark.anyio
 async def test_authenticated_user_can_list_other_people_for_an_interview():
     """Including yourself here would offer an interview request the API rejects."""
     async with _client() as client:

@@ -3,13 +3,6 @@ import { MicIcon, SquareIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ErrorNote } from "@/components/common/error-note";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Attachment,
-  AttachmentContent,
-  AttachmentDescription,
-  AttachmentMedia,
-  AttachmentTitle,
-} from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,14 +41,15 @@ export function ContributionInput({
     microphoneIssue,
     error: recorderError,
     toggleRecording,
-  } = useAudioRecorder((transcript) => {
-    const base = baseTextRef.current.trim();
-    setText(base ? `${base}\n\n${transcript}` : transcript);
+  } = useAudioRecorder((chunk) => {
+    const base = baseTextRef.current;
+    baseTextRef.current = `${base}${chunk}`;
+    setText(baseTextRef.current);
   });
 
   function handleToggleRecording() {
     if (!recording) {
-      baseTextRef.current = text;
+      baseTextRef.current = text.trim() ? `${text.trim()}\n\n` : "";
     }
     toggleRecording();
   }
@@ -83,23 +77,6 @@ export function ContributionInput({
         className="mt-6 min-h-36 resize-y"
         placeholder={placeholder || t("home.placeholder")}
       />
-      {(recording || transcribing) && (
-        <Attachment className="mt-3" state={transcribing ? "processing" : "idle"} size="sm">
-          <AttachmentMedia>
-            {transcribing ? <Spinner /> : <MicIcon />}
-          </AttachmentMedia>
-          <AttachmentContent>
-            <AttachmentTitle>
-              {transcribing ? "Transcribiendo audio..." : "Grabando audio de voz..."}
-            </AttachmentTitle>
-            <AttachmentDescription>
-              {transcribing
-                ? "Procesando transcripción con el modelo configurado"
-                : "Haz clic en detener cuando termines de hablar"}
-            </AttachmentDescription>
-          </AttachmentContent>
-        </Attachment>
-      )}
       <div className="mt-3 flex items-center justify-between">
         <Button
           aria-label={t(recording ? "home.stopRecording" : "home.recordAudio")}

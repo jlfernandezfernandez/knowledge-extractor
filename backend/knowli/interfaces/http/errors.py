@@ -28,7 +28,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(InvalidCredentials)
     def invalid_credentials(_: Request, __: InvalidCredentials) -> JSONResponse:
-        return _error(401, "unauthenticated", "invalid email or password")
+        return _error(401, "invalid_credentials", "invalid email or password")
 
     @app.exception_handler(SessionExpired)
     def session_expired(_: Request, __: SessionExpired) -> JSONResponse:

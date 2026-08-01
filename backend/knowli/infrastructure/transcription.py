@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any, BinaryIO
 
 from .. import config
@@ -27,11 +28,18 @@ class OpenAICompatibleTranscriber:
         )
         return self._client
 
-    def transcribe(self, audio: BinaryIO, filename: str) -> str:
-        response = self.client.audio.transcriptions.create(
-            file=(filename, audio), model=config.TRANSCRIPTION_MODEL
+    def transcribe(self, audio: BinaryIO, filename: str) -> Iterator[str]:
+        """Whisper decodes segment by segment, so `stream=True` is what makes the
+        transcript arrive while it is still being produced instead of after."""
+        stream = self.client.audio.transcriptions.create(
+            file=(filename, audio), model=config.TRANSCRIPTION_MODEL, stream=True
         )
-        return response.text.strip()
+        for event in stream:
+            # ponytail: only the OpenAI delta event is read. A provider that streams
+            # under other event names transcribes to nothing, which the endpoint
+            # reports as `no_speech_detected`.
+            if getattr(event, "type", None) == "transcript.text.delta" and event.delta:
+                yield event.delta
 
 
 def create_transcriber() -> Transcriber:

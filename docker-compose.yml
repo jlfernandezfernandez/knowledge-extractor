@@ -45,6 +45,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # Dictation is the only thing speaches serves, so the API starts alongside it
+      # rather than waiting on a model download it does not need to answer requests.
+      speaches:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; raise SystemExit(0 if urlopen('http://localhost:8000/api/health/ready').status == 200 else 1)"]
       interval: 3s
@@ -76,12 +80,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ALLOW_ORIGINS=*
+      - ALLOW_ORIGINS=["*"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/health || exit 1"]
-      interval: 5s
+      # ponytail: healthy means "serving", not "model downloaded". The first dictation
+      # of a fresh volume pays the download; preload it here if that wait ever matters.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/health"]
+      interval: 3s
       timeout: 3s
-      retries: 10
+      retries: 20
 
 volumes:
   knowli_pgdata:

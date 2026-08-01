@@ -33,6 +33,19 @@ class Recorder {
   }
 }
 
+function sseResponse(payloads: unknown[]) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const item of payloads) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(item)}\n\n`));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
 function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
@@ -97,7 +110,12 @@ describe("home contribution composer", () => {
   it("records microphone audio and adds its transcription to the composer", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(response({ items: [] }));
-    fetchMock.mockResolvedValueOnce(response({ text: "Deploy production on Tuesdays." }));
+    fetchMock.mockResolvedValueOnce(
+      sseResponse([
+        { type: "delta", text: "Deploy production" },
+        { type: "delta", text: " on Tuesdays." },
+      ]),
+    );
     renderHome();
 
     fireEvent.click(screen.getByRole("button", { name: "Record audio" }));
@@ -109,6 +127,19 @@ describe("home contribution composer", () => {
       "http://localhost:8000/api/transcriptions",
       expect.objectContaining({ method: "POST", credentials: "include", body: expect.any(FormData) }),
     );
+  });
+
+  it("shows the failure the transcription stream reports inside its 200 response", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(response({ items: [] }));
+    fetchMock.mockResolvedValueOnce(sseResponse([{ type: "error", code: "no_speech_detected" }]));
+    renderHome();
+
+    fireEvent.click(screen.getByRole("button", { name: "Record audio" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop recording" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Stop recording" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No speech was heard in that recording.");
   });
 
   it("shows one localized microphone error for an unavailable recording context", async () => {

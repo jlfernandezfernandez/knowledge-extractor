@@ -32,7 +32,9 @@ class Embedder(Protocol):
 
 
 class Transcriber(Protocol):
-    def transcribe(self, audio: BinaryIO, filename: str) -> str: ...
+    """Yields the transcript in the pieces the model decodes it in, as it decodes them."""
+
+    def transcribe(self, audio: BinaryIO, filename: str) -> Iterator[str]: ...
 
 
 class ContributionStore(Protocol):
