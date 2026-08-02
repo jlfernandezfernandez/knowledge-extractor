@@ -17,7 +17,8 @@ EMBEDDING_MODEL = os.environ.get(
 EMBED_DIM = int(os.environ.get("EMBED_DIM", "384"))
 SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "14"))
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
-TRANSCRIPTION_MODEL = os.environ.get("TRANSCRIPTION_MODEL", "Systran/faster-whisper-small")
+# `base`, not `small`: 0.6s per turn instead of 3.8s when whisper detects the language itself.
+TRANSCRIPTION_MODEL = os.environ.get("TRANSCRIPTION_MODEL", "Systran/faster-whisper-base")
 TRANSCRIPTION_API_KEY = os.environ.get("TRANSCRIPTION_API_KEY", "local")
 TRANSCRIPTION_BASE_URL = os.environ.get(
     "TRANSCRIPTION_BASE_URL", "http://host.docker.internal:8000/v1"

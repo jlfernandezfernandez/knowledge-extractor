@@ -16,7 +16,9 @@ export default defineConfig({
     // polling the dev server keeps serving the module it transformed at startup.
     watch: { usePolling: Boolean(process.env.VITE_USE_POLLING) },
     proxy: {
-      "/api": { target: "http://api:8000", changeOrigin: true },
+      // Without `ws` the dictation socket's upgrade request never reaches the API:
+      // the dev server holds it until the handshake times out.
+      "/api": { target: "http://api:8000", changeOrigin: true, ws: true },
     },
   },
   // Deep links like /review/<id> are resolved client-side; Vite's dev server

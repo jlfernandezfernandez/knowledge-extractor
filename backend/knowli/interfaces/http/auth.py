@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
+from starlette.requests import HTTPConnection
 
 from ... import config, wiring
 from ...application.auth import AuthService, SessionExpired
@@ -14,19 +15,21 @@ users_router = APIRouter(prefix="/api/users", tags=["users"])
 COOKIE = "knowli_session"
 
 
-def get_auth_service(request: Request) -> AuthService:
-    return wiring.services(request.app).auth
+# `HTTPConnection` rather than `Request` so the websocket routes resolve the same
+# dependency: a session cookie is a session cookie on either kind of connection.
+def get_auth_service(connection: HTTPConnection) -> AuthService:
+    return wiring.services(connection.app).auth
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
-def require_user(request: Request) -> User:
-    token = request.cookies.get(COOKIE)
+def require_user(connection: HTTPConnection) -> User:
+    token = connection.cookies.get(COOKIE)
     if token is None:
         raise SessionExpired()
-    override = request.app.dependency_overrides.get(get_auth_service)
-    service = override() if override is not None else get_auth_service(request)
+    override = connection.app.dependency_overrides.get(get_auth_service)
+    service = override() if override is not None else get_auth_service(connection)
     return service.authenticate(token)
 
 

@@ -9,7 +9,6 @@ export const en = {
   },
   shell: {
     primaryNavigation: "Primary navigation",
-    openNavigation: "Open navigation",
     accountMenu: "Account menu",
     signOut: "Sign out",
   },
@@ -57,7 +56,6 @@ export const en = {
     invalid_credentials: "Invalid email or password.",
     model_unavailable: "Configure a model to use Ask.",
     transcription_unavailable: "Transcription is unavailable.",
-    no_speech_detected: "No speech was heard in that recording.",
     invalidField: "Check this field.",
   },
   history: {

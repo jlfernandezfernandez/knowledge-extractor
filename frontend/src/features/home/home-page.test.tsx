@@ -16,34 +16,49 @@ const pending = {
   completed_at: null,
 };
 
-class Recorder {
-  ondataavailable: ((event: BlobEvent) => void) | null = null;
-  onstop: (() => void) | null = null;
-  stream: MediaStream;
+class FakeSocket {
+  static last: FakeSocket | null = null;
+  static readonly OPEN = 1;
 
-  constructor(stream: MediaStream) {
-    this.stream = stream;
+  readyState = FakeSocket.OPEN;
+  sent: unknown[] = [];
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+
+  constructor(readonly url: string) {
+    FakeSocket.last = this;
   }
 
-  start() {}
+  send(data: unknown) {
+    this.sent.push(data);
+  }
 
-  stop() {
-    this.ondataavailable?.({ data: new Blob(["recording"], { type: "audio/webm" }) } as BlobEvent);
-    this.onstop?.();
+  close() {
+    this.readyState = 3;
+    this.onclose?.();
+  }
+
+  say(event: unknown) {
+    this.onmessage?.({ data: JSON.stringify(event) } as MessageEvent);
   }
 }
 
-function sseResponse(payloads: unknown[]) {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      for (const item of payloads) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(item)}\n\n`));
-      }
-      controller.close();
-    },
-  });
-  return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+class FakeAudioContext {
+  audioWorklet = { addModule: vi.fn().mockResolvedValue(undefined) };
+  destination = {};
+  close = vi.fn().mockResolvedValue(undefined);
+  createMediaStreamSource() {
+    const node = { connect: () => node };
+    return node;
+  }
+}
+
+class FakeWorkletNode {
+  port: { onmessage: ((event: MessageEvent) => void) | null } = { onmessage: null };
+  connect<T>(target: T) {
+    return target;
+  }
 }
 
 function response(body: unknown, status = 200) {
@@ -65,7 +80,11 @@ function renderHome() {
 describe("home contribution composer", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ items: [] })));
-    vi.stubGlobal("MediaRecorder", Recorder);
+    vi.stubGlobal("WebSocket", FakeSocket);
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+    vi.stubGlobal("AudioWorkletNode", FakeWorkletNode);
+    vi.stubGlobal("GainNode", class {});
+    URL.createObjectURL = vi.fn(() => "blob:worklet");
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,
       value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }) },
@@ -107,39 +126,39 @@ describe("home contribution composer", () => {
     );
   });
 
-  it("records microphone audio and adds its transcription to the composer", async () => {
-    const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValueOnce(response({ items: [] }));
-    fetchMock.mockResolvedValueOnce(
-      sseResponse([
-        { type: "delta", text: "Deploy production" },
-        { type: "delta", text: " on Tuesdays." },
-      ]),
-    );
+  it("adds each transcribed turn to the composer while the microphone is still open", async () => {
     renderHome();
 
     fireEvent.click(screen.getByRole("button", { name: "Record audio" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Stop recording" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Stop recording" }));
 
+    const socket = FakeSocket.last!;
+    expect(socket.url).toBe("ws://localhost:8000/api/transcriptions");
+
+    socket.say({ type: "transcript", text: "Deploy production on Tuesdays." });
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Your contribution" })).toHaveValue("Deploy production on Tuesdays."));
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "http://localhost:8000/api/transcriptions",
-      expect.objectContaining({ method: "POST", credentials: "include", body: expect.any(FormData) }),
-    );
+
+    socket.say({ type: "transcript", text: "The team froze Friday releases." });
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Your contribution" })).toHaveValue(
+      "Deploy production on Tuesdays. The team froze Friday releases.",
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop recording" }));
+    expect(socket.sent.at(-1)).toEqual(new ArrayBuffer(0));
+
+    // The server closes once the final turn is transcribed, and that ends the dictation.
+    socket.close();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Record audio" })).toBeEnabled());
   });
 
-  it("shows the failure the transcription stream reports inside its 200 response", async () => {
-    const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValueOnce(response({ items: [] }));
-    fetchMock.mockResolvedValueOnce(sseResponse([{ type: "error", code: "no_speech_detected" }]));
+  it("shows the failure the live session reports on its own socket", async () => {
     renderHome();
 
     fireEvent.click(screen.getByRole("button", { name: "Record audio" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Stop recording" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Stop recording" }));
+    FakeSocket.last!.say({ type: "error", code: "transcription_unavailable" });
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("No speech was heard in that recording.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Transcription is unavailable.");
   });
 
   it("shows one localized microphone error for an unavailable recording context", async () => {

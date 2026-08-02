@@ -1,9 +1,5 @@
-import { post, request, requestSse } from "@/lib/api";
+import { post, request } from "@/lib/api";
 import type { ClaimDraft, ConflictResolution, Contribution } from "./types";
-
-export type TranscriptionEvent =
-  | { type: "delta"; text: string }
-  | { type: "error"; code: string };
 
 export const contributionsApi = {
   create: (raw_text: string) =>
@@ -17,9 +13,4 @@ export const contributionsApi = {
     post<Contribution>(`/api/contributions/${id}/commit`, { revision }),
   back: (id: string, revision: number) =>
     post<Contribution>(`/api/contributions/${id}/back`, { revision }),
-  transcribe: (audio: Blob, onEvent: (event: TranscriptionEvent) => void) => {
-    const form = new FormData();
-    form.append("audio", audio, "recording.webm");
-    return requestSse<TranscriptionEvent>("/api/transcriptions", { method: "POST", body: form }, onEvent);
-  },
 };

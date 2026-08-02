@@ -11,7 +11,6 @@ export const es: typeof en = {
   },
   shell: {
     primaryNavigation: "Navegación principal",
-    openNavigation: "Abrir navegación",
     accountMenu: "Menú de cuenta",
     signOut: "Cerrar sesión",
   },
@@ -59,7 +58,6 @@ export const es: typeof en = {
     invalid_credentials: "Email o contraseña incorrectos.",
     model_unavailable: "Configura un modelo para usar Preguntar.",
     transcription_unavailable: "La transcripción no está disponible.",
-    no_speech_detected: "No se ha oído voz en esa grabación.",
     invalidField: "Revisa este campo.",
   },
   history: {

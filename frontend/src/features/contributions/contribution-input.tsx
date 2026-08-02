@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { MicIcon, SquareIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ErrorNote } from "@/components/common/error-note";
@@ -33,7 +33,6 @@ export function ContributionInput({
 }: ContributionInputProps) {
   const { t } = useTranslation();
   const [text, setText] = useState(initialText);
-  const baseTextRef = useRef(initialText);
 
   const {
     recording,
@@ -41,18 +40,10 @@ export function ContributionInput({
     microphoneIssue,
     error: recorderError,
     toggleRecording,
-  } = useAudioRecorder((chunk) => {
-    const base = baseTextRef.current;
-    baseTextRef.current = `${base}${chunk}`;
-    setText(baseTextRef.current);
+  } = useAudioRecorder((transcript) => {
+    // One transcript per turn of speech, so each arrives as its own sentence.
+    setText((current) => (current.trim() ? `${current.trim()} ${transcript}` : transcript));
   });
-
-  function handleToggleRecording() {
-    if (!recording) {
-      baseTextRef.current = text.trim() ? `${text.trim()}\n\n` : "";
-    }
-    toggleRecording();
-  }
 
   const TitleTag = titleHeadingLevel;
 
@@ -81,7 +72,7 @@ export function ContributionInput({
         <Button
           aria-label={t(recording ? "home.stopRecording" : "home.recordAudio")}
           disabled={busy || transcribing}
-          onClick={handleToggleRecording}
+          onClick={toggleRecording}
           size="icon"
           type="button"
           variant={recording ? "destructive" : "ghost"}

@@ -1,8 +1,8 @@
 """The small external contracts used by Knowli services."""
 
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from datetime import datetime
-from typing import Any, BinaryIO, Protocol
+from typing import Any, Protocol
 
 from .claim import ClaimDraft, ClaimSearchResult, ClaimToCommit, ContributionStage
 from .contribution import HistoryItem, StoredContribution
@@ -32,9 +32,9 @@ class Embedder(Protocol):
 
 
 class Transcriber(Protocol):
-    """Yields the transcript in the pieces the model decodes it in, as it decodes them."""
+    """Turns an open microphone into one transcript per spoken turn, while it is still open."""
 
-    def transcribe(self, audio: BinaryIO, filename: str) -> Iterator[str]: ...
+    def transcribe(self, audio: AsyncIterator[bytes]) -> AsyncIterator[str]: ...
 
 
 class ContributionStore(Protocol):

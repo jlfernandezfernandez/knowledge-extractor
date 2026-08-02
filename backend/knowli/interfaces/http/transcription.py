@@ -1,12 +1,12 @@
-"""Authenticated microphone transcription stream."""
+"""Authenticated live microphone transcription over a websocket."""
 
 import logging
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterator
+from contextlib import suppress
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.sse import EventSourceResponse, ServerSentEvent
-from starlette.concurrency import iterate_in_threadpool
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from starlette.requests import HTTPConnection
 
 from ... import wiring
 from ...domain.ports import Transcriber
@@ -16,40 +16,35 @@ router = APIRouter(prefix="/api/transcriptions", tags=["transcriptions"])
 log = logging.getLogger(__name__)
 
 
-def get_transcriber(request: Request) -> Transcriber:
-    return wiring.services(request.app).transcriber
-
-
-def require_audio(audio: Annotated[UploadFile, File()]) -> UploadFile:
-    # A dependency, not the first line of the route: once the stream opens there is
-    # no status code left to send, so the rejection has to happen before it.
-    if not (audio.content_type or "").startswith("audio/"):
-        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="audio_file_required")
-    return audio
+def get_transcriber(connection: HTTPConnection) -> Transcriber:
+    return wiring.services(connection.app).transcriber
 
 
 TranscriberDep = Annotated[Transcriber, Depends(get_transcriber)]
-AudioDep = Annotated[UploadFile, Depends(require_audio)]
 
 
-# `response_class` is what makes FastAPI frame these events; see review.events.
-@router.post("", response_class=EventSourceResponse)
-async def transcribe(
-    audio: AudioDep,
-    _: CurrentUserDep,
-    transcriber: TranscriberDep,
-) -> AsyncIterable[ServerSentEvent]:
-    # The response has already started, so failures travel as an event, not a status.
-    spoke = False
+async def _microphone(socket: WebSocket) -> AsyncIterator[bytes]:
+    """16 kHz mono PCM16, until the empty frame the browser sends on stop."""
+    async for chunk in socket.iter_bytes():
+        if not chunk:
+            return
+        yield chunk
+
+
+@router.websocket("")
+async def transcribe(socket: WebSocket, _: CurrentUserDep, transcriber: TranscriberDep) -> None:
+    await socket.accept()
     try:
-        deltas = transcriber.transcribe(audio.file, audio.filename or "recording.webm")
-        async for delta in iterate_in_threadpool(deltas):
-            spoke = True
-            yield ServerSentEvent(data={"type": "delta", "text": delta})
-    except Exception:
-        log.exception("Microphone transcription failed")
-        yield ServerSentEvent(data={"type": "error", "code": "transcription_unavailable"})
+        async for transcript in transcriber.transcribe(_microphone(socket)):
+            await socket.send_json({"type": "transcript", "text": transcript})
+    except WebSocketDisconnect:
+        # The speaker closed the tab mid-turn; nothing left to transcribe for.
         return
-
-    if not spoke:
-        yield ServerSentEvent(data={"type": "error", "code": "no_speech_detected"})
+    except Exception:
+        log.exception("Live transcription failed")
+        await socket.send_json({"type": "error", "code": "transcription_unavailable"})
+    finally:
+        # The last transcript is already sent, so this close is what tells the browser
+        # the dictation is over: there is no other end-of-stream marker.
+        with suppress(RuntimeError):
+            await socket.close()

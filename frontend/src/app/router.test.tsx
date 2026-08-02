@@ -60,20 +60,18 @@ describe("application router", () => {
   it("shows the signed-in person and the sign-out action", () => {
     renderRoute("/history");
 
+    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.getByText("ada@example.test")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
     expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
   });
 
-  it("opens a mobile navigation with all destinations", () => {
-    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 390 });
+  it("keeps every destination reachable from the header", () => {
     renderRoute("/");
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    const mobileNavigation = within(screen.getByRole("dialog"));
+    const primaryNavigation = within(screen.getByRole("navigation", { name: "Primary navigation" }));
 
     for (const label of ["Knowledge", "Interviews", "History"]) {
-      expect(mobileNavigation.getByRole("link", { name: label })).toBeInTheDocument();
+      expect(primaryNavigation.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });
 });

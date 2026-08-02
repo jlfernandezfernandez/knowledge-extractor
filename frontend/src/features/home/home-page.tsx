@@ -47,7 +47,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col justify-center px-4 py-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-col px-4 py-10">
       <ContributionInput
         title={t("home.title")}
         subtitle={t("home.lead")}

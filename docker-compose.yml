@@ -32,7 +32,7 @@ services:
       MODEL_API_KEY: ${MODEL_API_KEY:-ollama}
       MODEL_NAME: ${MODEL_NAME:-qwen3.5:9b}
       MODEL_REASONING_EFFORT: ${MODEL_REASONING_EFFORT:-none}
-      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-Systran/faster-whisper-small}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-Systran/faster-whisper-base}
       TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-local}
       TRANSCRIPTION_BASE_URL: ${TRANSCRIPTION_BASE_URL:-http://host.docker.internal:8000/v1}
       COOKIE_SECURE: "false"
@@ -81,10 +81,14 @@ services:
       - "8000:8000"
     environment:
       - ALLOW_ORIGINS=["*"]
+    volumes:
+      # Without this the whisper model is downloaded again on every `compose up`.
+      - knowli_speaches:/home/ubuntu/.cache/huggingface
     healthcheck:
       # ponytail: healthy means "serving", not "model downloaded". The first dictation
-      # of a fresh volume pays the download; preload it here if that wait ever matters.
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/health"]
+      # after a fresh volume pays the download; preload it here if that wait ever matters.
+      # The image ships no wget, so this asks the same question the way the api does.
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; raise SystemExit(0 if urlopen('http://127.0.0.1:8000/health').status == 200 else 1)"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -92,3 +96,5 @@ services:
 volumes:
   knowli_pgdata:
     name: knowli_pgdata
+  knowli_speaches:
+    name: knowli_speaches

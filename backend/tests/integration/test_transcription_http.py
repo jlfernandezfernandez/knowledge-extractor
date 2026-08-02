@@ -1,10 +1,7 @@
-"""Authenticated audio transcription HTTP contract."""
+"""Authenticated live transcription websocket contract."""
 
-import json
-
-import httpx
-import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from knowli.domain.user import User
 from knowli.interfaces.http import auth, transcription
@@ -12,17 +9,21 @@ from knowli.interfaces.http.errors import register_error_handlers
 
 
 class FakeTranscriber:
-    def __init__(self, deltas=("Deploy production", " on Tuesdays.")):
+    """Answers every chunk while the microphone is still open, as a live session does."""
+
+    def __init__(self, failure: Exception | None = None):
         self.audio = b""
-        self.deltas = deltas
+        self.failure = failure
 
-    def transcribe(self, audio, filename):
-        assert filename == "recording.webm"
-        self.audio = audio.read()
-        yield from self.deltas
+    async def transcribe(self, audio):
+        async for chunk in audio:
+            if self.failure is not None:
+                raise self.failure
+            self.audio += chunk
+            yield f"heard {chunk.decode()}"
 
 
-def _app(transcriber) -> FastAPI:
+def _app(transcriber: FakeTranscriber) -> FastAPI:
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(transcription.router)
@@ -33,69 +34,24 @@ def _app(transcriber) -> FastAPI:
     return app
 
 
-def _events(body: str) -> list[dict]:
-    return [
-        json.loads(line[len("data: "):])
-        for line in body.splitlines()
-        if line.startswith("data: ")
-    ]
-
-
-def _deltas(body: str) -> list[str]:
-    return [event["text"] for event in _events(body) if event["type"] == "delta"]
-
-
-@pytest.fixture
-def anyio_backend() -> str:
-    return "asyncio"
-
-
-@pytest.mark.anyio
-async def test_authenticated_user_can_transcribe_microphone_audio() -> None:
+def test_transcripts_arrive_while_the_microphone_is_still_open() -> None:
     transcriber = FakeTranscriber()
-    app = _app(transcriber)
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
-    ) as client:
-        response = await client.post(
-            "/api/transcriptions",
-            files={"audio": ("recording.webm", b"recording", "audio/webm")},
-        )
+    with TestClient(_app(transcriber)).websocket_connect("/api/transcriptions") as socket:
+        socket.send_bytes(b"first turn")
+        assert socket.receive_json() == {"type": "transcript", "text": "heard first turn"}
+        socket.send_bytes(b"second turn")
+        assert socket.receive_json() == {"type": "transcript", "text": "heard second turn"}
+        socket.send_bytes(b"")
 
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/event-stream")
-    assert _deltas(response.text) == ["Deploy production", " on Tuesdays."]
-    assert transcriber.audio == b"recording"
+    assert transcriber.audio == b"first turnsecond turn"
 
 
-@pytest.mark.anyio
-async def test_silent_recording_reports_no_speech_on_the_stream() -> None:
-    """The response has already started, so an empty transcript cannot be a 4xx."""
-    app = _app(FakeTranscriber(deltas=()))
+def test_a_failing_session_reports_itself_before_the_socket_closes() -> None:
+    """The socket is already accepted, so the failure travels as an event, not a status."""
+    app = _app(FakeTranscriber(failure=RuntimeError("speaches is down")))
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
-    ) as client:
-        response = await client.post(
-            "/api/transcriptions",
-            files={"audio": ("recording.webm", b"silence", "audio/webm")},
-        )
+    with TestClient(app).websocket_connect("/api/transcriptions") as socket:
+        socket.send_bytes(b"anything")
 
-    assert response.status_code == 200
-    assert _events(response.text) == [{"type": "error", "code": "no_speech_detected"}]
-
-
-@pytest.mark.anyio
-async def test_transcription_rejects_non_audio_uploads() -> None:
-    app = _app(FakeTranscriber())
-
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
-    ) as client:
-        response = await client.post(
-            "/api/transcriptions",
-            files={"audio": ("notes.txt", b"not audio", "text/plain")},
-        )
-
-    assert response.status_code == 415
+        assert socket.receive_json() == {"type": "error", "code": "transcription_unavailable"}
